@@ -1,0 +1,18 @@
+{
+  "name": "Habit Tracker",
+  "short_name": "Habits",
+  "description": "A minimal, mobile-first habit tracker.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0f1e",
+  "theme_color": "#0a0f1e",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
