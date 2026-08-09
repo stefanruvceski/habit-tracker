@@ -7,6 +7,7 @@ import { Card } from "../components/ui";
 import { Heatmap, CellState } from "../components/Heatmap";
 import { HabitGlyph } from "../components/HabitGlyph";
 import { HabitForm, HabitDraft } from "../components/HabitForm";
+import { RemindersCard } from "../components/RemindersCard";
 
 export function HabitsScreen() {
   const state = useAppState();
@@ -43,6 +44,8 @@ export function HabitsScreen() {
           <Text style={{ color: C.bg, fontWeight: "700" }}>+ New</Text>
         </Pressable>
       </View>
+
+      <RemindersCard />
 
       {/* Year switcher — controls all habit heatmaps */}
       <View style={styles.yearRow}>

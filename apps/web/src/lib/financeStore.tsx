@@ -1,0 +1,375 @@
+"use client";
+
+import { useSyncExternalStore } from "react";
+import {
+  FINANCE_VERSION,
+  FinanceState,
+  FxProvider,
+  GoalConfig,
+  IncomeSource,
+  LevelTier,
+  Transaction,
+  emptyFinanceState,
+  fetchRates,
+  fetchFxRateOn,
+  fxRateStale,
+  newFinanceId,
+} from "@habit/core";
+
+const STORAGE_KEY = "habit-tracker.finance.v1";
+
+function seedFinanceState(): FinanceState {
+  const now = new Date().toISOString();
+  const base = emptyFinanceState("RSD");
+  base.sources = [
+    {
+      id: newFinanceId("src"),
+      name: "Freelance",
+      color: "#34d399",
+      currency: "EUR",
+      archived: false,
+      order: 0,
+      createdAt: now,
+    },
+    {
+      id: newFinanceId("src"),
+      name: "Salary",
+      color: "#60a5fa",
+      currency: "RSD",
+      archived: false,
+      order: 1,
+      createdAt: now,
+    },
+  ];
+  base.fxRates = [
+    { code: "EUR", rate: 117 },
+    { code: "USD", rate: 108 },
+  ];
+  return base;
+}
+
+// ---- Vanilla store with external subscription (SSR-safe) -------------------
+
+let state: FinanceState = seedFinanceState();
+let hydrated = false;
+const listeners = new Set<() => void>();
+
+function emit() {
+  for (const l of listeners) l();
+}
+
+function persist() {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // ignore quota / privacy errors
+  }
+}
+
+function load() {
+  if (typeof window === "undefined" || hydrated) return;
+  hydrated = true;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as FinanceState;
+      if (parsed && Array.isArray(parsed.sources)) {
+        state = {
+          version: FINANCE_VERSION,
+          baseCurrency: parsed.baseCurrency ?? "RSD",
+          sources: parsed.sources ?? [],
+          transactions: parsed.transactions ?? [],
+          fxRates: parsed.fxRates ?? [],
+          goal: parsed.goal ?? { target: 0, direction: "reach" },
+          levels:
+            Array.isArray(parsed.levels) && parsed.levels.length
+              ? parsed.levels
+              : emptyFinanceState().levels,
+          fxProvider: parsed.fxProvider ?? "general",
+        };
+      }
+    } else {
+      persist(); // first run: keep the seed stable
+    }
+  } catch {
+    // corrupt storage -> keep seed
+  }
+  emit();
+  // Pull fresh FX rates in the background (only stale / non-manual ones).
+  void refreshFx(false);
+}
+
+function setState(updater: (s: FinanceState) => FinanceState) {
+  state = updater(state);
+  persist();
+  emit();
+}
+
+function subscribe(cb: () => void) {
+  listeners.add(cb);
+  load();
+  return () => listeners.delete(cb);
+}
+
+function getSnapshot() {
+  return state;
+}
+
+// ---- Live FX rates --------------------------------------------------------
+
+let fxRefreshing = false;
+
+function foreignCodes(s: FinanceState): string[] {
+  return Array.from(
+    new Set(
+      s.sources
+        .map((x) => x.currency)
+        .filter((c) => c && c !== s.baseCurrency),
+    ),
+  );
+}
+
+/**
+ * Fetch live FX rates. `force` refreshes everything (including manual
+ * overrides); otherwise only stale, non-manual rates are updated. Failures are
+ * swallowed so the app keeps working offline with the last known rates.
+ */
+async function refreshFx(force: boolean) {
+  if (fxRefreshing) return;
+  const codes = foreignCodes(state);
+  const toFetch = force
+    ? codes
+    : codes.filter((c) => {
+        const r = state.fxRates.find((x) => x.code === c);
+        return !(r && r.manual) && fxRateStale(r);
+      });
+  if (toFetch.length === 0) return;
+
+  fxRefreshing = true;
+  emit();
+  try {
+    const res = await fetchRates(state.baseCurrency, toFetch, {
+      provider: state.fxProvider,
+    });
+    setState((s) => {
+      const map = new Map(s.fxRates.map((r) => [r.code, r]));
+      for (const q of res.rates) {
+        const prev = map.get(q.code);
+        if (!force && prev?.manual) continue;
+        map.set(q.code, {
+          code: q.code,
+          rate: q.rate,
+          updatedAt: res.fetchedAt,
+          manual: false,
+        });
+      }
+      return { ...s, fxRates: Array.from(map.values()) };
+    });
+  } catch {
+    // keep existing rates
+  } finally {
+    fxRefreshing = false;
+    emit();
+  }
+}
+
+/**
+ * Look up the exchange rate for a transaction's date and store it on the
+ * transaction, so its base-currency value reflects the day it was received.
+ * Silent on failure — the live rate is used as a fallback.
+ */
+async function lockTxRate(id: string, currency: string, date: string) {
+  if (currency === state.baseCurrency) return;
+  try {
+    const rate = await fetchFxRateOn(state.baseCurrency, currency, date, {
+      provider: state.fxProvider,
+    });
+    if (rate && rate > 0) {
+      setState((s) => ({
+        ...s,
+        transactions: s.transactions.map((t) =>
+          t.id === id ? { ...t, fxRate: rate, fxRateDate: date } : t,
+        ),
+      }));
+    }
+  } catch {
+    // keep live-rate fallback
+  }
+}
+
+// ---- Mutations ------------------------------------------------------------
+
+export const financeActions = {
+  addSource(input: Omit<IncomeSource, "id" | "order" | "archived" | "createdAt">) {
+    setState((s) => {
+      const order = s.sources.length
+        ? Math.max(...s.sources.map((x) => x.order)) + 1
+        : 0;
+      const src: IncomeSource = {
+        ...input,
+        id: newFinanceId("src"),
+        order,
+        archived: false,
+        createdAt: new Date().toISOString(),
+      };
+      return { ...s, sources: [...s.sources, src] };
+    });
+  },
+
+  updateSource(id: string, patch: Partial<IncomeSource>) {
+    setState((s) => ({
+      ...s,
+      sources: s.sources.map((x) => (x.id === id ? { ...x, ...patch } : x)),
+    }));
+  },
+
+  deleteSource(id: string) {
+    setState((s) => ({
+      ...s,
+      sources: s.sources.filter((x) => x.id !== id),
+      transactions: s.transactions.filter((t) => t.sourceId !== id),
+    }));
+  },
+
+  addTransaction(input: Omit<Transaction, "id" | "createdAt">) {
+    const tx: Transaction = {
+      ...input,
+      id: newFinanceId("tx"),
+      createdAt: new Date().toISOString(),
+    };
+    setState((s) => ({ ...s, transactions: [...s.transactions, tx] }));
+    void lockTxRate(tx.id, tx.currency, tx.date);
+  },
+
+  updateTransaction(id: string, patch: Partial<Transaction>) {
+    setState((s) => ({
+      ...s,
+      transactions: s.transactions.map((t) => (t.id === id ? { ...t, ...patch } : t)),
+    }));
+    // Re-lock the historical rate when the date or currency changes.
+    if (patch.date || patch.currency) {
+      const t = state.transactions.find((x) => x.id === id);
+      if (t) void lockTxRate(id, t.currency, t.date);
+    }
+  },
+
+  /** Re-fetch and lock the historical rate for one transaction. */
+  relockTransactionRate(id: string) {
+    const t = state.transactions.find((x) => x.id === id);
+    if (t) void lockTxRate(id, t.currency, t.date);
+  },
+
+  deleteTransaction(id: string) {
+    setState((s) => ({
+      ...s,
+      transactions: s.transactions.filter((t) => t.id !== id),
+    }));
+  },
+
+  setGoal(goal: GoalConfig) {
+    setState((s) => ({ ...s, goal }));
+  },
+
+  setBaseCurrency(code: string) {
+    // FX table and per-transaction locked rates are relative to the base, so
+    // clear them and re-derive against the new base.
+    setState((s) => ({
+      ...s,
+      baseCurrency: code,
+      fxRates: [],
+      transactions: s.transactions.map((t) => ({
+        ...t,
+        fxRate: undefined,
+        fxRateDate: undefined,
+      })),
+    }));
+    void refreshFx(true);
+    for (const t of state.transactions) {
+      if (t.currency !== code) void lockTxRate(t.id, t.currency, t.date);
+    }
+  },
+
+  setFxRate(code: string, rate: number) {
+    setState((s) => {
+      const rest = s.fxRates.filter((r) => r.code !== code);
+      return {
+        ...s,
+        fxRates: [
+          ...rest,
+          { code, rate, updatedAt: new Date().toISOString(), manual: true },
+        ],
+      };
+    });
+  },
+
+  /** Revert a currency to auto-updated rates and refetch immediately. */
+  resetFxRate(code: string) {
+    setState((s) => ({
+      ...s,
+      fxRates: s.fxRates.filter((r) => r.code !== code),
+    }));
+    void refreshFx(false);
+  },
+
+  /** Manually trigger an FX refresh (force = overwrite manual overrides too). */
+  refreshFxRates(force = false) {
+    void refreshFx(force);
+  },
+
+  /** Switch the rate provider and re-derive rates against it. */
+  setFxProvider(provider: FxProvider) {
+    setState((s) => ({
+      ...s,
+      fxProvider: provider,
+      fxRates: [],
+      transactions: s.transactions.map((t) => ({
+        ...t,
+        fxRate: undefined,
+        fxRateDate: undefined,
+      })),
+    }));
+    void refreshFx(true);
+    for (const t of state.transactions) {
+      if (t.currency !== state.baseCurrency) void lockTxRate(t.id, t.currency, t.date);
+    }
+  },
+
+  setLevels(levels: LevelTier[]) {
+    setState((s) => ({ ...s, levels }));
+  },
+
+  importFinance(next: FinanceState) {
+    setState(() => ({
+      version: FINANCE_VERSION,
+      baseCurrency: next.baseCurrency ?? "RSD",
+      sources: next.sources ?? [],
+      transactions: next.transactions ?? [],
+      fxRates: next.fxRates ?? [],
+      goal: next.goal ?? { target: 0, direction: "reach" },
+      levels: next.levels ?? emptyFinanceState().levels,
+    }));
+  },
+};
+
+// ---- Hooks ----------------------------------------------------------------
+
+export function useFinanceState(): FinanceState {
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+}
+
+export function useFinanceHydrated(): boolean {
+  return useSyncExternalStore(
+    subscribe,
+    () => hydrated,
+    () => false,
+  );
+}
+
+export function useFxRefreshing(): boolean {
+  return useSyncExternalStore(
+    subscribe,
+    () => fxRefreshing,
+    () => false,
+  );
+}

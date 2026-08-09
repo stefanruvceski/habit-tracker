@@ -4,3 +4,4 @@ export * from "./date";
 export * from "./stats";
 export * from "./defaults";
 export * from "./icons";
+export * from "./finance";

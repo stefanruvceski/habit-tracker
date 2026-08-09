@@ -7,12 +7,20 @@ import { TodayScreen } from "./src/screens/TodayScreen";
 import { MonthScreen } from "./src/screens/MonthScreen";
 import { DashboardScreen } from "./src/screens/DashboardScreen";
 import { HabitsScreen } from "./src/screens/HabitsScreen";
-import { TodayIcon, MonthIcon, YearIcon, HabitsIcon } from "./src/components/icons";
+import { FinanceScreen } from "./src/screens/FinanceScreen";
+import {
+  TodayIcon,
+  MonthIcon,
+  YearIcon,
+  HabitsIcon,
+  FinanceIcon,
+} from "./src/components/icons";
 
 const TABS = [
   { key: "today", label: "Today", Icon: TodayIcon, Screen: TodayScreen },
   { key: "month", label: "Month", Icon: MonthIcon, Screen: MonthScreen },
   { key: "year", label: "Year", Icon: YearIcon, Screen: DashboardScreen },
+  { key: "finance", label: "Finance", Icon: FinanceIcon, Screen: FinanceScreen },
   { key: "habits", label: "Habits", Icon: HabitsIcon, Screen: HabitsScreen },
 ] as const;
 
@@ -31,7 +39,11 @@ function Shell() {
   return (
     <SafeAreaView style={styles.root} edges={["top", "left", "right"]}>
       <View style={{ flex: 1 }}>
-        <Active />
+        {tab === "year" ? (
+          <DashboardScreen onOpenFinance={() => setTab("finance")} />
+        ) : (
+          <Active />
+        )}
       </View>
       <View style={styles.tabBar}>
         {TABS.map((t) => {

@@ -67,3 +67,14 @@ export function HabitsIcon(props: IconProps) {
     </Base>
   );
 }
+
+/** Finance — a wallet. */
+export function FinanceIcon(props: IconProps) {
+  return (
+    <Base {...props}>
+      <rect x="3" y="6" width="18" height="13" rx="2.5" />
+      <path d="M3 9.5h18" />
+      <circle cx="16.5" cy="14" r="1.2" />
+    </Base>
+  );
+}
