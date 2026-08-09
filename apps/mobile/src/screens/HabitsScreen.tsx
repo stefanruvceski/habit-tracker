@@ -1,0 +1,107 @@
+import { useState } from "react";
+import { View, Text, Pressable, ScrollView, StyleSheet } from "react-native";
+import { Habit, bestStreak, currentStreak, isDone, isScheduled } from "@habit/core";
+import { actions, useAppState, useHabits } from "../lib/store";
+import { C } from "../lib/theme";
+import { Card } from "../components/ui";
+import { Heatmap, CellState } from "../components/Heatmap";
+import { HabitForm, HabitDraft } from "../components/HabitForm";
+
+export function HabitsScreen() {
+  const state = useAppState();
+  const habits = useHabits();
+  const [editing, setEditing] = useState<Habit | null>(null);
+  const [creating, setCreating] = useState(false);
+
+  function move(id: string, dir: -1 | 1) {
+    const ids = habits.map((h) => h.id);
+    const i = ids.indexOf(id);
+    const j = i + dir;
+    if (j < 0 || j >= ids.length) return;
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    actions.reorderHabits(ids);
+  }
+
+  function save(d: HabitDraft) {
+    if (editing) actions.updateHabit(editing.id, d);
+    else actions.addHabit(d);
+    setEditing(null);
+    setCreating(false);
+  }
+
+  return (
+    <ScrollView contentContainerStyle={styles.content}>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.title}>Habits</Text>
+          <Text style={{ color: C.dim, fontSize: 13 }}>{habits.length} active</Text>
+        </View>
+        <Pressable style={styles.newBtn} onPress={() => setCreating(true)}>
+          <Text style={{ color: C.bg, fontWeight: "700" }}>+ New</Text>
+        </Pressable>
+      </View>
+
+      {habits.map((h, i) => {
+        const getState = (key: string): CellState =>
+          isDone(state.entries, h.id, key) ? "done" : isScheduled(h, key) ? "missed" : "off";
+        const scheduleLabel =
+          h.schedule.type === "daily" ? "Daily"
+            : h.schedule.type === "weekly" ? `${h.schedule.times}×/week`
+            : `${h.schedule.days.length} days/week`;
+        return (
+          <Card key={h.id}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+              <View style={[styles.emojiBox, { backgroundColor: h.color + "22" }]}>
+                <Text style={{ fontSize: 20 }}>{h.emoji}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text numberOfLines={1} style={{ color: C.text, fontWeight: "600" }}>{h.name}</Text>
+                <Text style={{ color: C.dim, fontSize: 12 }}>
+                  {h.type === "quit" ? "🚫 Quit · " : ""}{scheduleLabel} · 🔥 {currentStreak(state.entries, h)} · best {bestStreak(state.entries, h)}
+                </Text>
+              </View>
+              <Pressable style={styles.iconBtn} onPress={() => move(h.id, -1)} disabled={i === 0}>
+                <Text style={[styles.iconTxt, i === 0 && { opacity: 0.3 }]}>↑</Text>
+              </Pressable>
+              <Pressable style={styles.iconBtn} onPress={() => move(h.id, 1)} disabled={i === habits.length - 1}>
+                <Text style={[styles.iconTxt, i === habits.length - 1 && { opacity: 0.3 }]}>↓</Text>
+              </Pressable>
+              <Pressable style={styles.iconBtn} onPress={() => setEditing(h)}>
+                <Text style={styles.iconTxt}>✎</Text>
+              </Pressable>
+            </View>
+            <View style={{ marginTop: 12 }}>
+              <Heatmap color={h.color} getState={getState} />
+            </View>
+          </Card>
+        );
+      })}
+
+      {habits.length === 0 && (
+        <Card style={{ alignItems: "center", paddingVertical: 24 }}>
+          <Text style={{ color: C.dim }}>No habits yet. Tap “+ New”.</Text>
+        </Card>
+      )}
+
+      <HabitForm
+        visible={creating || !!editing}
+        initial={editing}
+        onSave={save}
+        onDelete={editing ? () => { actions.deleteHabit(editing.id); setEditing(null); } : undefined}
+        onClose={() => { setEditing(null); setCreating(false); }}
+      />
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  content: { padding: 14, gap: 12, paddingBottom: 40 },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" },
+  title: { color: C.text, fontSize: 24, fontWeight: "800" },
+  newBtn: { backgroundColor: C.accent, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10 },
+  emojiBox: { width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  iconBtn: { width: 32, height: 32, borderRadius: 9, backgroundColor: C.elev2, alignItems: "center", justifyContent: "center" },
+  iconTxt: { color: C.dim, fontSize: 15 },
+  cardTitle: { color: C.text, fontWeight: "700", fontSize: 16 },
+  secondaryBtn: { flex: 1, borderRadius: 12, backgroundColor: C.elev2, paddingVertical: 12, alignItems: "center" },
+});

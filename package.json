@@ -2,25 +2,15 @@
   "name": "habit-tracker",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
-  "dependencies": {
-    "next": "16.3.0",
-    "react": "19.2.8",
-    "react-dom": "19.2.8"
-  },
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.3.0",
-    "tailwindcss": "^4",
-    "typescript": "^5"
+    "dev": "npm run dev -w web",
+    "build:web": "npm run build -w web",
+    "lint:web": "npm run lint -w web",
+    "mobile": "npm run start -w mobile",
+    "typecheck": "npm run typecheck -w @habit/core && npm run typecheck -w web"
   }
 }
