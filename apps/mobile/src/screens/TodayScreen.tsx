@@ -16,6 +16,7 @@ import {
 import { actions, useAppState, useHabits } from "../lib/store";
 import { C } from "../lib/theme";
 import { Card, ProgressRing } from "../components/ui";
+import { HabitGlyph } from "../components/HabitGlyph";
 
 export function TodayScreen() {
   const state = useAppState();
@@ -83,7 +84,7 @@ export function TodayScreen() {
               ]}
             >
               <View style={[styles.emojiBox, { backgroundColor: h.color + "22" }]}>
-                <Text style={{ fontSize: 20 }}>{h.emoji}</Text>
+                <HabitGlyph icon={h.icon} emoji={h.emoji} color={h.color} size={24} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ color: C.text, fontWeight: "600", fontSize: 15 }}>{h.name}</Text>

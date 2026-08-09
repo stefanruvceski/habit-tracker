@@ -16,7 +16,12 @@ export type Schedule =
 export interface Habit {
   id: string;
   name: string;
-  emoji: string;
+  /**
+   * Built-in icon id from the shared icon set (see icons.ts). When set and it
+   * matches a known icon, it is rendered instead of the emoji.
+   */
+  icon?: string;
+  emoji: string; // fallback glyph (any keyboard emoji) when no built-in icon
   color: string; // hex, used for the checkbox / heatmap
   type: HabitType;
   schedule: Schedule;

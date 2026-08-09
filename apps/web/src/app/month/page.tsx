@@ -13,6 +13,7 @@ import { MONTH_NAMES, daysInMonth, makeKey } from "@habit/core";
 import { MonthGrid } from "../../components/MonthGrid";
 import { LineChart } from "../../components/LineChart";
 import { Card, Stat, pct } from "../../components/ui";
+import { HabitGlyph } from "../../components/HabitGlyph";
 
 export default function MonthPage() {
   const hydrated = useHydrated();
@@ -167,7 +168,9 @@ export default function MonthPage() {
               const ratio = habitMonthRatio(state.entries, h, year, month);
               return (
                 <div key={h.id} className="flex items-center gap-2">
-                  <span className="text-base w-6 text-center">{h.emoji}</span>
+                  <span className="w-6 grid place-items-center">
+                    <HabitGlyph icon={h.icon} emoji={h.emoji} color={h.color} size={18} />
+                  </span>
                   <span className="text-sm w-28 sm:w-40 truncate">{h.name}</span>
                   <div className="flex-1 h-2 rounded-full bg-bg-elev-2 overflow-hidden">
                     <div
@@ -218,8 +221,9 @@ export default function MonthPage() {
               .slice(0, 4)
               .map((h) => (
                 <div key={h.id} className="rounded-xl bg-bg-elev-2 px-3 py-2.5">
-                  <div className="text-sm truncate">
-                    {h.emoji} {h.name}
+                  <div className="text-sm truncate flex items-center gap-1.5">
+                    <HabitGlyph icon={h.icon} emoji={h.emoji} color={h.color} size={16} />
+                    {h.name}
                   </div>
                   <div className="text-lg font-bold" style={{ color: h.color }}>
                     {bestStreak(state.entries, h)}{" "}

@@ -5,6 +5,7 @@ import { actions, useAppState, useHabits } from "../lib/store";
 import { C } from "../lib/theme";
 import { Card } from "../components/ui";
 import { Heatmap, CellState } from "../components/Heatmap";
+import { HabitGlyph } from "../components/HabitGlyph";
 import { HabitForm, HabitDraft } from "../components/HabitForm";
 
 export function HabitsScreen() {
@@ -52,7 +53,7 @@ export function HabitsScreen() {
           <Card key={h.id}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
               <View style={[styles.emojiBox, { backgroundColor: h.color + "22" }]}>
-                <Text style={{ fontSize: 20 }}>{h.emoji}</Text>
+                <HabitGlyph icon={h.icon} emoji={h.emoji} color={h.color} size={24} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text numberOfLines={1} style={{ color: C.text, fontWeight: "600" }}>{h.name}</Text>

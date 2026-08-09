@@ -13,6 +13,7 @@ import { bestStreak, currentStreak, isDone, isScheduled } from "@habit/core";
 import { HabitForm, HabitDraft } from "../../components/HabitForm";
 import { Heatmap, CellState } from "../../components/Heatmap";
 import { Card, PageHeader } from "../../components/ui";
+import { HabitGlyph } from "../../components/HabitGlyph";
 
 export default function HabitsPage() {
   const hydrated = useHydrated();
@@ -138,10 +139,10 @@ function HabitManageCard({
     <Card>
       <div className="flex items-center gap-3">
         <span
-          className="grid place-items-center w-11 h-11 rounded-xl text-xl shrink-0"
+          className="grid place-items-center w-11 h-11 rounded-xl shrink-0"
           style={{ background: `${habit.color}22` }}
         >
-          {habit.emoji}
+          <HabitGlyph icon={habit.icon} emoji={habit.emoji} color={habit.color} size={24} />
         </span>
         <div className="flex-1 min-w-0">
           <div className="font-medium truncate">{habit.name}</div>

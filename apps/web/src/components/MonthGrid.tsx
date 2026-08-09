@@ -8,6 +8,7 @@ import {
   scheduledCountOnDate,
 } from "@habit/core";
 import { WEEKDAY_SHORT, makeKey, todayKey, weekdayOf } from "@habit/core";
+import { HabitGlyph } from "./HabitGlyph";
 
 /** The spreadsheet-style month grid: habits × days, tap a cell to toggle. */
 export function MonthGrid({
@@ -65,7 +66,7 @@ export function MonthGrid({
             <tr key={h.id}>
               <td className="sticky left-0 z-10 bg-bg-elev px-2 py-1">
                 <div className="flex items-center gap-1.5 min-w-[112px]">
-                  <span className="text-base leading-none">{h.emoji}</span>
+                  <HabitGlyph icon={h.icon} emoji={h.emoji} color={h.color} size={18} />
                   <span className="text-xs truncate max-w-[92px]">{h.name}</span>
                 </div>
               </td>

@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Modal, View, Text, TextInput, Pressable, ScrollView, StyleSheet } from "react-native";
-import { Habit, HabitType, Schedule, EMOJI_SUGGESTIONS, PALETTE, WEEKDAY_SHORT } from "@habit/core";
+import { Habit, HabitType, Schedule, EMOJI_SUGGESTIONS, PALETTE, WEEKDAY_SHORT, searchIcons } from "@habit/core";
 import { C } from "../lib/theme";
+import { HabitGlyph } from "./HabitGlyph";
 
 export interface HabitDraft {
   name: string;
+  icon?: string;
   emoji: string;
   color: string;
   type: HabitType;
@@ -12,8 +14,8 @@ export interface HabitDraft {
 }
 
 function toDraft(h?: Habit | null): HabitDraft {
-  if (!h) return { name: "", emoji: "🎯", color: PALETTE[0], type: "build", schedule: { type: "daily" } };
-  return { name: h.name, emoji: h.emoji, color: h.color, type: h.type, schedule: h.schedule };
+  if (!h) return { name: "", icon: "target", emoji: "🎯", color: PALETTE[0], type: "build", schedule: { type: "daily" } };
+  return { name: h.name, icon: h.icon, emoji: h.emoji, color: h.color, type: h.type, schedule: h.schedule };
 }
 
 export function HabitForm({
@@ -31,12 +33,15 @@ export function HabitForm({
 }) {
   const [draft, setDraft] = useState<HabitDraft>(toDraft(initial));
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [query, setQuery] = useState("");
+  const results = useMemo(() => searchIcons(query), [query]);
 
   // Re-seed the form each time it opens.
   const [lastVisible, setLastVisible] = useState(false);
   if (visible && !lastVisible) {
     setDraft(toDraft(initial));
     setConfirmDelete(false);
+    setQuery("");
     setLastVisible(true);
   } else if (!visible && lastVisible) {
     setLastVisible(false);
@@ -68,7 +73,7 @@ export function HabitForm({
             <Text style={styles.label}>NAME</Text>
             <View style={{ flexDirection: "row", gap: 8, marginBottom: 14 }}>
               <View style={[styles.emojiPreview, { backgroundColor: draft.color + "22" }]}>
-                <Text style={{ fontSize: 20 }}>{draft.emoji}</Text>
+                <HabitGlyph icon={draft.icon} emoji={draft.emoji} color={draft.color} size={24} />
               </View>
               <TextInput
                 value={draft.name}
@@ -80,14 +85,51 @@ export function HabitForm({
             </View>
 
             <Text style={styles.label}>ICON</Text>
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Search (run, water, sleep…)"
+              placeholderTextColor={C.faint}
+              style={[styles.input, { flex: 0, alignSelf: "stretch", marginBottom: 8 }]}
+            />
             <View style={styles.wrap}>
-              {EMOJI_SUGGESTIONS.map((e) => (
+              {results.map((ic) => {
+                const active = draft.icon === ic.id;
+                return (
+                  <Pressable
+                    key={ic.id}
+                    onPress={() => setDraft((d) => ({ ...d, icon: ic.id }))}
+                    style={[styles.iconBtn, active && { borderColor: C.accent, borderWidth: 2, backgroundColor: C.elev2 }]}
+                  >
+                    <HabitGlyph icon={ic.id} color={active ? draft.color : C.dim} size={22} />
+                  </Pressable>
+                );
+              })}
+              {results.length === 0 && (
+                <Text style={{ color: C.faint, fontSize: 12, paddingVertical: 8 }}>
+                  No icons match — use an emoji below.
+                </Text>
+              )}
+            </View>
+
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
+              <Text style={{ color: C.faint, fontSize: 12 }}>or emoji</Text>
+              <TextInput
+                value={draft.icon ? "" : draft.emoji}
+                onChangeText={(t) =>
+                  setDraft((d) => ({ ...d, icon: undefined, emoji: Array.from(t).slice(-1)[0] ?? "🎯" }))
+                }
+                placeholder="😀"
+                placeholderTextColor={C.faint}
+                style={styles.emojiInput}
+              />
+              {EMOJI_SUGGESTIONS.slice(0, 8).map((e) => (
                 <Pressable
                   key={e}
-                  onPress={() => setDraft((d) => ({ ...d, emoji: e }))}
-                  style={[styles.emojiBtn, draft.emoji === e && { borderColor: C.accent, borderWidth: 2 }]}
+                  onPress={() => setDraft((d) => ({ ...d, icon: undefined, emoji: e }))}
+                  style={[styles.emojiBtn, !draft.icon && draft.emoji === e && { borderColor: C.accent, borderWidth: 2 }]}
                 >
-                  <Text style={{ fontSize: 18 }}>{e}</Text>
+                  <Text style={{ fontSize: 16 }}>{e}</Text>
                 </Pressable>
               ))}
             </View>
@@ -193,9 +235,11 @@ const styles = StyleSheet.create({
   h: { color: C.text, fontSize: 18, fontWeight: "700" },
   label: { color: C.faint, fontSize: 11, letterSpacing: 0.5, fontWeight: "600", marginBottom: 6 },
   emojiPreview: { width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-  input: { flex: 1, backgroundColor: C.elev2, borderRadius: 12, paddingHorizontal: 12, color: C.text, fontSize: 16 },
-  wrap: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 14 },
-  emojiBtn: { width: 38, height: 38, borderRadius: 9, backgroundColor: C.elev2, alignItems: "center", justifyContent: "center" },
+  input: { flex: 1, backgroundColor: C.elev2, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, color: C.text, fontSize: 16 },
+  wrap: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 10 },
+  emojiBtn: { width: 34, height: 34, borderRadius: 9, backgroundColor: C.elev2, alignItems: "center", justifyContent: "center" },
+  iconBtn: { width: 40, height: 40, borderRadius: 10, backgroundColor: C.elev2, alignItems: "center", justifyContent: "center" },
+  emojiInput: { width: 46, textAlign: "center", backgroundColor: C.elev2, borderRadius: 9, paddingVertical: 6, color: C.text, fontSize: 18 },
   colorDot: { width: 32, height: 32, borderRadius: 16 },
   seg: { flex: 1, borderRadius: 12, borderWidth: 1, borderColor: C.border, paddingVertical: 10, alignItems: "center" },
   segActive: { borderColor: C.accent, backgroundColor: "rgba(52,211,153,0.1)" },

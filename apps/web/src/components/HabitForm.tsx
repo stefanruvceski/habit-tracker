@@ -1,12 +1,20 @@
 "use client";
 
-import { useState } from "react";
-import { Habit, HabitType, Schedule } from "@habit/core";
-import { EMOJI_SUGGESTIONS, PALETTE } from "@habit/core";
-import { WEEKDAY_SHORT } from "@habit/core";
+import { useMemo, useState } from "react";
+import {
+  Habit,
+  HabitType,
+  Schedule,
+  EMOJI_SUGGESTIONS,
+  PALETTE,
+  WEEKDAY_SHORT,
+  searchIcons,
+} from "@habit/core";
+import { HabitGlyph } from "./HabitGlyph";
 
 export interface HabitDraft {
   name: string;
+  icon?: string;
   emoji: string;
   color: string;
   type: HabitType;
@@ -17,6 +25,7 @@ function toDraft(h?: Habit | null): HabitDraft {
   if (!h)
     return {
       name: "",
+      icon: "target",
       emoji: "🎯",
       color: PALETTE[0],
       type: "build",
@@ -24,6 +33,7 @@ function toDraft(h?: Habit | null): HabitDraft {
     };
   return {
     name: h.name,
+    icon: h.icon,
     emoji: h.emoji,
     color: h.color,
     type: h.type,
@@ -44,12 +54,15 @@ export function HabitForm({
 }) {
   const [draft, setDraft] = useState<HabitDraft>(toDraft(initial));
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [query, setQuery] = useState("");
 
   const scheduleType = draft.schedule.type;
   const weekdayDays =
     draft.schedule.type === "weekdays" ? draft.schedule.days : [];
   const weeklyTimes =
     draft.schedule.type === "weekly" ? draft.schedule.times : 3;
+
+  const results = useMemo(() => searchIcons(query), [query]);
 
   function setSchedule(s: Schedule) {
     setDraft((d) => ({ ...d, schedule: s }));
@@ -87,16 +100,16 @@ export function HabitForm({
           </button>
         </div>
 
-        {/* Name + emoji preview */}
+        {/* Name + glyph preview */}
         <label className="block text-xs uppercase tracking-wide text-text-faint mb-1.5">
           Name
         </label>
         <div className="flex gap-2 mb-4">
           <div
-            className="grid place-items-center w-11 h-11 rounded-xl text-xl shrink-0"
+            className="grid place-items-center w-11 h-11 rounded-xl shrink-0"
             style={{ background: `${draft.color}22` }}
           >
-            {draft.emoji}
+            <HabitGlyph icon={draft.icon} emoji={draft.emoji} color={draft.color} size={24} />
           </div>
           <input
             autoFocus
@@ -107,22 +120,75 @@ export function HabitForm({
           />
         </div>
 
-        {/* Emoji picker */}
+        {/* Icon picker */}
         <label className="block text-xs uppercase tracking-wide text-text-faint mb-1.5">
           Icon
         </label>
-        <div className="flex flex-wrap gap-1.5 mb-4">
-          {EMOJI_SUGGESTIONS.map((e) => (
-            <button
-              key={e}
-              onClick={() => setDraft((d) => ({ ...d, emoji: e }))}
-              className={`w-9 h-9 rounded-lg text-lg grid place-items-center transition ${
-                draft.emoji === e ? "bg-bg-elev-2 ring-2 ring-accent" : "hover:bg-bg-elev-2"
-              }`}
-            >
-              {e}
-            </button>
-          ))}
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search icons (e.g. run, water, sleep)…"
+          className="w-full bg-bg-elev-2 rounded-xl px-3 py-2 text-sm mb-2 outline-none focus:ring-2 focus:ring-accent/50"
+        />
+        <div className="grid grid-cols-6 gap-1.5 max-h-44 overflow-y-auto pr-1 mb-3">
+          {results.map((ic) => {
+            const active = draft.icon === ic.id;
+            return (
+              <button
+                key={ic.id}
+                title={ic.label}
+                onClick={() => setDraft((d) => ({ ...d, icon: ic.id }))}
+                className={`aspect-square rounded-lg grid place-items-center transition ${
+                  active ? "ring-2 ring-accent bg-bg-elev-2" : "hover:bg-bg-elev-2"
+                }`}
+              >
+                <HabitGlyph
+                  icon={ic.id}
+                  color={active ? draft.color : "var(--text-dim)"}
+                  size={22}
+                />
+              </button>
+            );
+          })}
+          {results.length === 0 && (
+            <div className="col-span-6 text-center text-xs text-text-faint py-4">
+              No icons match — use an emoji below.
+            </div>
+          )}
+        </div>
+
+        {/* Emoji fallback */}
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-xs text-text-faint whitespace-nowrap">
+            or emoji
+          </span>
+          <input
+            value={draft.icon ? "" : draft.emoji}
+            onChange={(e) =>
+              setDraft((d) => ({
+                ...d,
+                icon: undefined,
+                emoji: Array.from(e.target.value).slice(-1)[0] ?? "🎯",
+              }))
+            }
+            placeholder="😀"
+            className="w-12 text-center bg-bg-elev-2 rounded-lg py-1.5 text-lg outline-none focus:ring-2 focus:ring-accent/50"
+          />
+          <div className="flex flex-wrap gap-1 flex-1">
+            {EMOJI_SUGGESTIONS.slice(0, 10).map((e) => (
+              <button
+                key={e}
+                onClick={() => setDraft((d) => ({ ...d, icon: undefined, emoji: e }))}
+                className={`w-8 h-8 rounded-lg text-base grid place-items-center transition ${
+                  !draft.icon && draft.emoji === e
+                    ? "bg-bg-elev-2 ring-2 ring-accent"
+                    : "hover:bg-bg-elev-2"
+                }`}
+              >
+                {e}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Color picker */}

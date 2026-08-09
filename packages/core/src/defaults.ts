@@ -29,21 +29,23 @@ export function newId(): string {
 /** Seed habits mirroring the user's original spreadsheet, so it feels familiar. */
 export function seedHabits(): Habit[] {
   const now = new Date().toISOString();
-  const defs: Array<[string, string, Habit["type"]]> = [
-    ["Early start", "🌅", "build"],
-    ["Gym or movement", "🏋️", "build"],
-    ["Cold shower", "❄️", "build"],
-    ["Journal", "✍️", "build"],
-    ["Plan top 3", "📝", "build"],
-    ["Deep work", "🎧", "build"],
-    ["No socials AM", "📵", "quit"],
-    ["Eat clean", "🥑", "build"],
-    ["Screen free evening", "📺", "quit"],
-    ["Alcohol free", "🍺", "quit"],
+  // [name, built-in icon id, fallback emoji, type]
+  const defs: Array<[string, string, string, Habit["type"]]> = [
+    ["Early start", "sunrise", "🌅", "build"],
+    ["Gym or movement", "dumbbell", "🏋️", "build"],
+    ["Cold shower", "cold", "❄️", "build"],
+    ["Journal", "journal", "✍️", "build"],
+    ["Plan top 3", "checklist", "📝", "build"],
+    ["Deep work", "headphones", "🎧", "build"],
+    ["No socials AM", "no-phone", "📵", "quit"],
+    ["Eat clean", "salad", "🥑", "build"],
+    ["Screen free evening", "no-tv", "📺", "quit"],
+    ["Alcohol free", "no-alcohol", "🍺", "quit"],
   ];
-  return defs.map(([name, emoji, type], i) => ({
+  return defs.map(([name, icon, emoji, type], i) => ({
     id: newId(),
     name,
+    icon,
     emoji,
     color: PALETTE[i % PALETTE.length],
     type,

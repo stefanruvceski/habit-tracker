@@ -3,3 +3,4 @@ export * from "./types";
 export * from "./date";
 export * from "./stats";
 export * from "./defaults";
+export * from "./icons";

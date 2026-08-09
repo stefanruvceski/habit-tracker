@@ -22,6 +22,7 @@ import { actions, useAppState, useHabits } from "../lib/store";
 import { C, pct } from "../lib/theme";
 import { Card, Stat } from "../components/ui";
 import { LineChart } from "../components/Charts";
+import { HabitGlyph } from "../components/HabitGlyph";
 
 const CELL = 30;
 const ROW_H = 34;
@@ -92,7 +93,7 @@ export function MonthScreen() {
               </View>
               {habits.map((h) => (
                 <View key={h.id} style={{ height: ROW_H, flexDirection: "row", alignItems: "center", width: NAME_W }}>
-                  <Text style={{ fontSize: 15 }}>{h.emoji}</Text>
+                  <HabitGlyph icon={h.icon} emoji={h.emoji} color={h.color} size={16} />
                   <Text numberOfLines={1} style={{ color: C.text, fontSize: 12, marginLeft: 4, flex: 1 }}>{h.name}</Text>
                 </View>
               ))}
@@ -184,7 +185,9 @@ export function MonthScreen() {
               const ratio = habitMonthRatio(state.entries, h, year, month);
               return (
                 <View key={h.id} style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                  <Text style={{ width: 22, textAlign: "center" }}>{h.emoji}</Text>
+                  <View style={{ width: 22, alignItems: "center" }}>
+                    <HabitGlyph icon={h.icon} emoji={h.emoji} color={h.color} size={18} />
+                  </View>
                   <Text numberOfLines={1} style={{ color: C.text, width: 90, fontSize: 12 }}>{h.name}</Text>
                   <View style={{ flex: 1, height: 8, borderRadius: 4, backgroundColor: C.elev2, overflow: "hidden" }}>
                     <View style={{ height: 8, width: `${ratio * 100}%`, backgroundColor: h.color, borderRadius: 4 }} />
@@ -221,7 +224,10 @@ export function MonthScreen() {
                 .slice(0, 4)
                 .map((h) => (
                   <View key={h.id} style={{ width: "47%", borderRadius: 12, backgroundColor: C.elev2, padding: 10 }}>
-                    <Text numberOfLines={1} style={{ color: C.text, fontSize: 13 }}>{h.emoji} {h.name}</Text>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <HabitGlyph icon={h.icon} emoji={h.emoji} color={h.color} size={15} />
+                      <Text numberOfLines={1} style={{ color: C.text, fontSize: 13, flex: 1 }}>{h.name}</Text>
+                    </View>
                     <Text style={{ color: h.color, fontSize: 18, fontWeight: "800" }}>
                       {bestStreak(state.entries, h)} <Text style={{ color: C.faint, fontSize: 11, fontWeight: "500" }}>best</Text>
                     </Text>

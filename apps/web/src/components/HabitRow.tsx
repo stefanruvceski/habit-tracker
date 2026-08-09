@@ -1,6 +1,7 @@
 "use client";
 
 import { Habit } from "@habit/core";
+import { HabitGlyph } from "./HabitGlyph";
 
 /** A large tappable row for checking off a habit on a given day (Today view). */
 export function HabitRow({
@@ -23,10 +24,10 @@ export function HabitRow({
       style={done ? { background: `${habit.color}1f` } : undefined}
     >
       <span
-        className="grid place-items-center w-11 h-11 rounded-xl text-xl shrink-0"
+        className="grid place-items-center w-11 h-11 rounded-xl shrink-0"
         style={{ background: `${habit.color}22` }}
       >
-        {habit.emoji}
+        <HabitGlyph icon={habit.icon} emoji={habit.emoji} color={habit.color} size={24} />
       </span>
       <span className="flex-1 min-w-0">
         <span className="block font-medium truncate">{habit.name}</span>
