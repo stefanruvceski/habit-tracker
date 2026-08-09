@@ -178,7 +178,7 @@ function HabitManageCard({
         </div>
       </div>
       <div className="mt-3">
-        <Heatmap weeks={26} color={habit.color} getState={getState} />
+        <Heatmap color={habit.color} getState={getState} />
       </div>
     </Card>
   );

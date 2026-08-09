@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { Habit, Entries } from "@habit/core";
 import {
   doneCountOnDate,
@@ -18,6 +19,7 @@ export function MonthGrid({
   month,
   days,
   onToggle,
+  autoScrollDay,
 }: {
   habits: Habit[];
   entries: Entries;
@@ -25,15 +27,44 @@ export function MonthGrid({
   month: number;
   days: number[];
   onToggle: (habitId: string, dateKey: string) => void;
+  /** Day-of-month to center in view (the current day), or null to start at day 1. */
+  autoScrollDay?: number | null;
 }) {
   const today = todayKey();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const todayColRef = useRef<HTMLTableCellElement>(null);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (autoScrollDay == null) {
+      el.scrollLeft = 0;
+      return;
+    }
+    // Scroll so ~4 days before today are visible right after the sticky name
+    // column, i.e. today sits in the right half showing recent past days.
+    // Deterministic (no container-width measurement, which is unreliable at
+    // first paint); the browser clamps to the max scroll near month end.
+    // Scroll so today sits near the right edge (≈1 day of margin after it), so
+    // the recent past days leading up to today are what you see first. rAF lets
+    // the grid finish layout before measuring.
+    const id = requestAnimationFrame(() => {
+      const col = todayColRef.current;
+      if (!col) return;
+      const cw = el.clientWidth;
+      const cell = col.offsetWidth || 32;
+      const target = col.offsetLeft + cell * 2 - cw;
+      el.scrollLeft = Math.max(0, Math.min(target, el.scrollWidth - cw));
+    });
+    return () => cancelAnimationFrame(id);
+  }, [autoScrollDay, year, month]);
 
   return (
-    <div className="scroll-x -mx-1 px-1">
+    <div ref={scrollRef} className="scroll-x">
       <table className="border-separate" style={{ borderSpacing: 0 }}>
         <thead>
           <tr>
-            <th className="sticky left-0 z-20 bg-bg-elev text-left text-xs font-medium text-text-faint px-2 py-2 min-w-[128px] rounded-tl-lg">
+            <th className="sticky left-0 z-20 bg-bg-elev text-left text-xs font-medium text-text-faint pr-2 py-2 min-w-[128px] border-r border-border">
               Habit
             </th>
             {days.map((day) => {
@@ -44,6 +75,7 @@ export function MonthGrid({
               return (
                 <th
                   key={day}
+                  ref={isToday ? todayColRef : undefined}
                   className={`px-0 py-1 text-center w-9 ${
                     isToday ? "text-accent" : weekend ? "text-text-faint" : "text-text-dim"
                   }`}
@@ -64,7 +96,7 @@ export function MonthGrid({
         <tbody>
           {habits.map((h) => (
             <tr key={h.id}>
-              <td className="sticky left-0 z-10 bg-bg-elev px-2 py-1">
+              <td className="sticky left-0 z-10 bg-bg-elev pr-2 py-1 border-r border-border">
                 <div className="flex items-center gap-1.5 min-w-[112px]">
                   <HabitGlyph icon={h.icon} emoji={h.emoji} color={h.color} size={18} />
                   <span className="text-xs truncate max-w-[92px]">{h.name}</span>
@@ -111,7 +143,7 @@ export function MonthGrid({
         </tbody>
         <tfoot>
           <tr>
-            <td className="sticky left-0 z-10 bg-bg-elev px-2 pt-2 pb-0.5 text-[11px] text-text-faint min-w-[128px]">
+            <td className="sticky left-0 z-10 bg-bg-elev pr-2 pt-2 pb-0.5 text-[11px] text-text-faint min-w-[128px] border-r border-border">
               Done
             </td>
             {days.map((day) => {
@@ -127,7 +159,7 @@ export function MonthGrid({
             })}
           </tr>
           <tr>
-            <td className="sticky left-0 z-10 bg-bg-elev px-2 py-0.5 text-[11px] text-text-faint min-w-[128px]">
+            <td className="sticky left-0 z-10 bg-bg-elev pr-2 py-0.5 text-[11px] text-text-faint min-w-[128px] border-r border-border">
               %
             </td>
             {days.map((day) => {
