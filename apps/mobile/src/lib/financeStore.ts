@@ -3,12 +3,13 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   FINANCE_VERSION,
   FinanceState,
+  FxProvider,
   GoalConfig,
   IncomeSource,
   LevelTier,
   Transaction,
   emptyFinanceState,
-  fetchFxRates,
+  fetchRates,
   fetchFxRateOn,
   fxRateStale,
   newFinanceId,
@@ -82,6 +83,7 @@ async function load() {
             Array.isArray(parsed.levels) && parsed.levels.length
               ? parsed.levels
               : emptyFinanceState().levels,
+          fxProvider: parsed.fxProvider ?? "general",
         };
       }
     } else {
@@ -124,7 +126,9 @@ async function refreshFx(force: boolean) {
   fxRefreshing = true;
   emit();
   try {
-    const res = await fetchFxRates(state.baseCurrency, toFetch);
+    const res = await fetchRates(state.baseCurrency, toFetch, {
+      provider: state.fxProvider,
+    });
     setState((s) => {
       const map = new Map(s.fxRates.map((r) => [r.code, r]));
       for (const q of res.rates) {
@@ -155,7 +159,9 @@ async function refreshFx(force: boolean) {
 async function lockTxRate(id: string, currency: string, date: string) {
   if (currency === state.baseCurrency) return;
   try {
-    const rate = await fetchFxRateOn(state.baseCurrency, currency, date);
+    const rate = await fetchFxRateOn(state.baseCurrency, currency, date, {
+      provider: state.fxProvider,
+    });
     if (rate && rate > 0) {
       setState((s) => ({
         ...s,
@@ -310,6 +316,23 @@ export const financeActions = {
 
   refreshFxRates(force = false) {
     void refreshFx(force);
+  },
+
+  setFxProvider(provider: FxProvider) {
+    setState((s) => ({
+      ...s,
+      fxProvider: provider,
+      fxRates: [],
+      transactions: s.transactions.map((t) => ({
+        ...t,
+        fxRate: undefined,
+        fxRateDate: undefined,
+      })),
+    }));
+    void refreshFx(true);
+    for (const t of state.transactions) {
+      if (t.currency !== state.baseCurrency) void lockTxRate(t.id, t.currency, t.date);
+    }
   },
 
   setLevels(levels: LevelTier[]) {

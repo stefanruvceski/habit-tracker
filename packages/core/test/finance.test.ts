@@ -30,6 +30,10 @@ import {
   fxEndpoints,
   SUPPORTED_CURRENCIES,
   SUPPORTED_CURRENCY_CODES,
+  nbsEndpoints,
+  parseNbsResponse,
+  fetchNbsRates,
+  fetchRates,
 } from "../src/finance.ts";
 
 let idc = 0;
@@ -423,6 +427,91 @@ test("fetchFxRates short-circuits when no foreign codes are requested", async ()
 test("fetchFxRates throws when every endpoint fails", async () => {
   const stub = async () => ({ ok: false, status: 503, json: async () => ({}) });
   await assert.rejects(() => fetchFxRates("RSD", ["EUR"], { fetchImpl: stub }));
+});
+
+test("nbsEndpoints uses 'today' by default and a date when given", () => {
+  assert.ok(nbsEndpoints()[0].endsWith("/rates/today"));
+  assert.ok(nbsEndpoints("2026-03-15")[0].endsWith("/rates/2026-03-15"));
+});
+
+test("parseNbsResponse returns RSD-per-unit adjusting for parity", () => {
+  const data = {
+    date: "2026-03-15",
+    rates: [
+      { code: "EUR", exchange_middle: 117.2, parity: 1 },
+      { code: "JPY", exchange_middle: 78.5, parity: 100 }, // quoted per 100
+      { code: "USD", exchange_middle: 108.4, parity: 1 },
+    ],
+  };
+  const out = parseNbsResponse(["EUR", "JPY"], data);
+  const m = new Map(out.map((r) => [r.code, r.rsdPer]));
+  assert.ok(Math.abs((m.get("EUR") ?? 0) - 117.2) < 1e-9);
+  assert.ok(Math.abs((m.get("JPY") ?? 0) - 0.785) < 1e-9); // 78.5 / 100
+  assert.equal(m.has("USD"), false); // not requested
+});
+
+test("fetchNbsRates returns RSD-per-code directly when base is RSD", async () => {
+  const stub = async (url: string) => {
+    assert.ok(url.includes("kurs.resenje.org"));
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        date: "2026-03-15",
+        rates: [
+          { code: "EUR", exchange_middle: 117, parity: 1 },
+          { code: "USD", exchange_middle: 108, parity: 1 },
+        ],
+      }),
+    };
+  };
+  const res = await fetchNbsRates("RSD", ["EUR", "USD"], { fetchImpl: stub });
+  const m = new Map(res.rates.map((r) => [r.code, r.rate]));
+  assert.ok(Math.abs((m.get("EUR") ?? 0) - 117) < 1e-9);
+  assert.ok(Math.abs((m.get("USD") ?? 0) - 108) < 1e-9);
+  assert.equal(res.date, "2026-03-15");
+});
+
+test("fetchNbsRates cross-computes through RSD for a non-RSD base", async () => {
+  const stub = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      rates: [
+        { code: "EUR", exchange_middle: 117, parity: 1 },
+        { code: "USD", exchange_middle: 108, parity: 1 },
+      ],
+    }),
+  });
+  // base EUR, want USD: EUR-per-USD = rsdPer(USD)/rsdPer(EUR) = 108/117
+  const res = await fetchNbsRates("EUR", ["USD"], { fetchImpl: stub });
+  assert.equal(res.rates[0].code, "USD");
+  assert.ok(Math.abs(res.rates[0].rate - 108 / 117) < 1e-9);
+});
+
+test("fetchRates dispatches to NBS when provider is 'nbs'", async () => {
+  let host = "";
+  const stub = async (url: string) => {
+    host = url;
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ rates: [{ code: "EUR", exchange_middle: 117, parity: 1 }] }),
+    };
+  };
+  const res = await fetchRates("RSD", ["EUR"], { provider: "nbs", fetchImpl: stub });
+  assert.ok(host.includes("kurs.resenje.org"));
+  assert.ok(Math.abs(res.rates[0].rate - 117) < 1e-9);
+});
+
+test("fetchRates defaults to the general currency-api provider", async () => {
+  let host = "";
+  const stub = async (url: string) => {
+    host = url;
+    return { ok: true, status: 200, json: async () => ({ rsd: { eur: 1 / 117 } }) };
+  };
+  await fetchRates("RSD", ["EUR"], { fetchImpl: stub });
+  assert.ok(host.includes("currency-api"));
 });
 
 test("fxRateStale flags missing, undated and old rates", () => {

@@ -629,6 +629,8 @@ function FxSection({ codes }: { codes: string[] }) {
     .sort()
     .pop();
 
+  const provider = state.fxProvider ?? "general";
+
   return (
     <>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
@@ -642,6 +644,20 @@ function FxSection({ codes }: { codes: string[] }) {
             {refreshing ? "Updating…" : "↻ Update"}
           </Text>
         </Pressable>
+      </View>
+      <Text style={styles.fieldLabel}>RATES SOURCE</Text>
+      <View style={[styles.chipRow, { marginBottom: 8 }]}>
+        {(["general", "nbs"] as const).map((p) => (
+          <Pressable
+            key={p}
+            onPress={() => financeActions.setFxProvider(p)}
+            style={[styles.chip, provider === p && styles.chipOn]}
+          >
+            <Text style={{ color: provider === p ? C.bg : C.dim, fontSize: 13, fontWeight: "600" }}>
+              {p === "general" ? "Automatic" : "NBS (official)"}
+            </Text>
+          </Pressable>
+        ))}
       </View>
       {codes.map((code) => {
         const entry = state.fxRates.find((r) => r.code === code);

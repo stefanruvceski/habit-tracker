@@ -80,6 +80,14 @@ export interface FxRate {
   manual?: boolean;
 }
 
+/**
+ * Where exchange rates come from:
+ * - "general": free global currency-api (works for any base currency).
+ * - "nbs": National Bank of Serbia official middle rates (RSD-based; other
+ *   bases are cross-computed through RSD).
+ */
+export type FxProvider = "general" | "nbs";
+
 /** Whether the yearly goal is something to reach or a ceiling not to exceed. */
 export type GoalDirection = "reach" | "not_exceed";
 
@@ -111,6 +119,8 @@ export interface FinanceState {
   goal: GoalConfig;
   /** Level tiers ordered by ascending `min` (validated on read). */
   levels: LevelTier[];
+  /** Exchange-rate source (defaults to "general" when absent). */
+  fxProvider?: FxProvider;
 }
 
 export const FINANCE_VERSION = 1;
@@ -133,6 +143,7 @@ export function emptyFinanceState(baseCurrency: CurrencyCode = "RSD"): FinanceSt
     fxRates: [],
     goal: { target: 0, direction: "reach" },
     levels: DEFAULT_LEVELS,
+    fxProvider: "general",
   };
 }
 
@@ -628,30 +639,145 @@ export async function fetchFxRates(
   throw lastErr ?? new Error("FX fetch failed");
 }
 
+// ---------------------------------------------------------------------------
+// NBS (National Bank of Serbia) official rates
+// ---------------------------------------------------------------------------
+
+/**
+ * Public NBS middle-rate endpoint (kurs.resenje.org, a free, keyless,
+ * CORS-enabled mirror of the official rates). `today` for the latest list,
+ * or a `YYYY-MM-DD` date for a historical list.
+ */
+export function nbsEndpoints(date?: string): string[] {
+  const d = date && date.length === 10 ? date : "today";
+  return [`https://kurs.resenje.org/api/v1/rates/${d}`];
+}
+
+/**
+ * Parse an NBS rates list into RSD-per-unit values for the requested codes.
+ * The list quotes `exchange_middle` for a `parity` (e.g. 100 for some
+ * currencies), so per-unit = exchange_middle / parity. Pure and testable.
+ */
+export function parseNbsResponse(
+  codes: CurrencyCode[],
+  data: unknown,
+): Array<{ code: CurrencyCode; rsdPer: number }> {
+  const obj = (data ?? {}) as Record<string, unknown>;
+  const list = Array.isArray(obj.rates) ? (obj.rates as Record<string, unknown>[]) : [];
+  const want = new Set(codes.map((c) => c.toUpperCase()));
+  const out: Array<{ code: CurrencyCode; rsdPer: number }> = [];
+  for (const row of list) {
+    const code = String(row.code ?? "").toUpperCase();
+    if (!want.has(code)) continue;
+    const mid = Number(row.exchange_middle);
+    const parity = Number(row.parity) || 1;
+    if (mid > 0) out.push({ code, rsdPer: mid / parity });
+  }
+  return out;
+}
+
+/**
+ * Fetch base-per-code rates from NBS. NBS quotes RSD per foreign unit, so a
+ * non-RSD base is cross-computed: base-per-code = rsdPer(code) / rsdPer(base).
+ */
+export async function fetchNbsRates(
+  base: CurrencyCode,
+  codes: CurrencyCode[],
+  opts: { signal?: unknown; fetchImpl?: FetchLike; date?: string } = {},
+): Promise<FxFetchResult> {
+  const wanted = Array.from(new Set(codes.filter((c) => c && c !== base)));
+  if (wanted.length === 0) {
+    return { base, date: "", fetchedAt: new Date().toISOString(), rates: [] };
+  }
+  const f =
+    opts.fetchImpl ?? (globalThis as unknown as { fetch?: FetchLike }).fetch;
+  if (!f) throw new Error("No fetch implementation available");
+
+  const need = new Set(wanted.map((c) => c.toUpperCase()));
+  const baseUp = base.toUpperCase();
+  if (baseUp !== "RSD") need.add(baseUp);
+
+  let lastErr: unknown = null;
+  for (const url of nbsEndpoints(opts.date)) {
+    try {
+      const res = await f(url, { signal: opts.signal });
+      if (!res.ok) {
+        lastErr = new Error(`HTTP ${res.status}`);
+        continue;
+      }
+      const data = (await res.json()) as Record<string, unknown>;
+      const parsed = parseNbsResponse(Array.from(need), data);
+      const map = new Map(parsed.map((r) => [r.code, r.rsdPer]));
+      map.set("RSD", 1);
+
+      const baseRsd = map.get(baseUp);
+      if (baseUp !== "RSD" && !baseRsd) {
+        lastErr = new Error("base currency not in NBS list");
+        continue;
+      }
+      const rates: FxQuote[] = [];
+      for (const code of wanted) {
+        const codeRsd = map.get(code.toUpperCase());
+        if (!codeRsd) continue;
+        const basePer = baseUp === "RSD" ? codeRsd : codeRsd / (baseRsd as number);
+        if (basePer > 0) rates.push({ code, rate: basePer });
+      }
+      if (rates.length > 0) {
+        const date = typeof data.date === "string" ? data.date : "";
+        return { base, date, fetchedAt: new Date().toISOString(), rates };
+      }
+      lastErr = new Error("No matching NBS rates in response");
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr ?? new Error("NBS fetch failed");
+}
+
+// ---------------------------------------------------------------------------
+// Unified fetch (provider dispatch)
+// ---------------------------------------------------------------------------
+
+/** Fetch base-per-code rates from the chosen provider (default "general"). */
+export function fetchRates(
+  base: CurrencyCode,
+  codes: CurrencyCode[],
+  opts: {
+    signal?: unknown;
+    fetchImpl?: FetchLike;
+    date?: string;
+    provider?: FxProvider;
+  } = {},
+): Promise<FxFetchResult> {
+  if (opts.provider === "nbs") return fetchNbsRates(base, codes, opts);
+  return fetchFxRates(base, codes, opts);
+}
+
 /**
  * Fetch the base-per-`code` rate for a specific `date` (the day of a payment),
  * returning null if unavailable. Today/future dates fall back to latest rates,
- * since the provider only publishes a given day's rates afterwards.
+ * since providers only publish a given day's rates afterwards.
  */
 export async function fetchFxRateOn(
   base: CurrencyCode,
   code: CurrencyCode,
   date: string,
-  opts: { signal?: unknown; fetchImpl?: FetchLike } = {},
+  opts: { signal?: unknown; fetchImpl?: FetchLike; provider?: FxProvider } = {},
 ): Promise<number | null> {
   if (code === base) return 1;
   const useDate = date && date < localToday() ? date : undefined;
   try {
-    const res = await fetchFxRates(base, [code], { ...opts, date: useDate });
+    const res = await fetchRates(base, [code], { ...opts, date: useDate });
     const q = res.rates.find((r) => r.code === code);
     return q ? q.rate : null;
   } catch {
     // Historical date may not exist that far back; fall back to latest rates.
     if (useDate) {
       try {
-        const res = await fetchFxRates(base, [code], {
+        const res = await fetchRates(base, [code], {
           signal: opts.signal,
           fetchImpl: opts.fetchImpl,
+          provider: opts.provider,
         });
         const q = res.rates.find((r) => r.code === code);
         return q ? q.rate : null;

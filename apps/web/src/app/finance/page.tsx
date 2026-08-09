@@ -713,6 +713,19 @@ function FxEditor() {
           </button>
         )}
       </div>
+      <label className="block mb-2">
+        <span className="text-[10px] uppercase tracking-wide text-text-faint">
+          Rates source
+        </span>
+        <select
+          value={state.fxProvider ?? "general"}
+          onChange={(e) => financeActions.setFxProvider(e.target.value as "general" | "nbs")}
+          className="mt-1 w-full bg-bg-elev-2 border border-border rounded-lg px-3 py-2 text-sm"
+        >
+          <option value="general">Automatic (global rates)</option>
+          <option value="nbs">NBS — official middle rate</option>
+        </select>
+      </label>
       {codes.length === 0 ? (
         <p className="text-xs text-text-faint">No foreign currencies in use.</p>
       ) : (
