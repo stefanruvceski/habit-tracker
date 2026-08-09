@@ -11,6 +11,7 @@
     "build:web": "npm run build -w web",
     "lint:web": "npm run lint -w web",
     "mobile": "npm run start -w mobile",
+    "test:core": "node --test --experimental-strip-types packages/core/test/*.test.ts",
     "typecheck": "npm run typecheck -w @habit/core && npm run typecheck -w web"
   }
 }

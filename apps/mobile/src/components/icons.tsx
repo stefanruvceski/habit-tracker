@@ -61,3 +61,14 @@ export function HabitsIcon(props: IconProps) {
     </Base>
   );
 }
+
+/** Finance — a wallet. */
+export function FinanceIcon(props: IconProps) {
+  return (
+    <Base {...props}>
+      <Path d="M5.5 6h13a2.5 2.5 0 0 1 2.5 2.5v8a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5v-8A2.5 2.5 0 0 1 5.5 6z" />
+      <Path d="M3 9.5h18" />
+      <Circle cx="16.5" cy="14" r="1.2" />
+    </Base>
+  );
+}
