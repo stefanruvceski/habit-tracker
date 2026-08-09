@@ -15,6 +15,12 @@ export const WEEKDAY_LONG = [
   "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
 ];
 
+/**
+ * getDay() indices ordered Monday-first, for weekday pickers/labels.
+ * (Weeks start on Monday across the app.)
+ */
+export const WEEKDAY_ORDER_MON = [1, 2, 3, 4, 5, 6, 0];
+
 /** Pad a number to 2 digits. */
 function p2(n: number): string {
   return n < 10 ? `0${n}` : `${n}`;
@@ -66,6 +72,11 @@ export function addDays(key: string, delta: number): string {
 
 export function weekdayOf(key: string): number {
   return fromKey(key).getDay();
+}
+
+/** Weekday index with Monday = 0 … Sunday = 6 (weeks start on Monday). */
+export function mondayIndex(key: string): number {
+  return (weekdayOf(key) + 6) % 7;
 }
 
 /** ISO week number (1..53) used to group days into weeks. */

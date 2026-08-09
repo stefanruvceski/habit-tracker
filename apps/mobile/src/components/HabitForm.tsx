@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Modal, View, Text, TextInput, Pressable, ScrollView, StyleSheet } from "react-native";
-import { Habit, HabitType, Schedule, EMOJI_SUGGESTIONS, PALETTE, WEEKDAY_SHORT, searchIcons } from "@habit/core";
+import { Habit, HabitType, Schedule, EMOJI_SUGGESTIONS, PALETTE, WEEKDAY_SHORT, WEEKDAY_ORDER_MON, searchIcons } from "@habit/core";
 import { C } from "../lib/theme";
 import { HabitGlyph } from "./HabitGlyph";
 
@@ -179,13 +179,13 @@ export function HabitForm({
 
             {st === "weekdays" && (
               <View style={{ flexDirection: "row", gap: 6, marginBottom: 12 }}>
-                {WEEKDAY_SHORT.map((w, i) => (
+                {WEEKDAY_ORDER_MON.map((idx) => (
                   <Pressable
-                    key={i}
-                    onPress={() => toggleWeekday(i)}
-                    style={[styles.dayBtn, weekdayDays.includes(i) && { backgroundColor: C.accent }]}
+                    key={idx}
+                    onPress={() => toggleWeekday(idx)}
+                    style={[styles.dayBtn, weekdayDays.includes(idx) && { backgroundColor: C.accent }]}
                   >
-                    <Text style={{ color: weekdayDays.includes(i) ? C.bg : C.dim, fontSize: 12, fontWeight: "600" }}>{w}</Text>
+                    <Text style={{ color: weekdayDays.includes(idx) ? C.bg : C.dim, fontSize: 12, fontWeight: "600" }}>{WEEKDAY_SHORT[idx]}</Text>
                   </Pressable>
                 ))}
               </View>
