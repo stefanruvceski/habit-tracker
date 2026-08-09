@@ -2,6 +2,8 @@ import { useState } from "react";
 import { View, Text, Pressable, ScrollView, StyleSheet } from "react-native";
 import { Habit, bestStreak, currentStreak, isDone, isScheduled } from "@habit/core";
 import { actions, useAppState, useHabits } from "../lib/store";
+import { useAuth } from "../lib/auth";
+import { syncNow, useSyncStatus, SyncStatus } from "../lib/sync";
 import { C } from "../lib/theme";
 import { Card } from "../components/ui";
 import { Heatmap, CellState } from "../components/Heatmap";
@@ -104,6 +106,8 @@ export function HabitsScreen() {
         </Card>
       )}
 
+      <AccountCard />
+
       <HabitForm
         visible={creating || !!editing}
         initial={editing}
@@ -112,6 +116,59 @@ export function HabitsScreen() {
         onClose={() => { setEditing(null); setCreating(false); }}
       />
     </ScrollView>
+  );
+}
+
+const SYNC_LABEL: Record<SyncStatus, { text: string; color: string }> = {
+  idle: { text: "Idle", color: C.faint },
+  syncing: { text: "Syncing…", color: C.amber },
+  synced: { text: "Synced", color: C.accent },
+  offline: { text: "Offline", color: C.amber },
+  error: { text: "Sync error — will retry", color: C.danger },
+};
+
+function AccountCard() {
+  const { status, user, signOut } = useAuth();
+  const syncStatus = useSyncStatus();
+  const [busy, setBusy] = useState(false);
+
+  if (status === "unconfigured") {
+    return (
+      <Card>
+        <Text style={styles.cardTitle}>Cloud sync</Text>
+        <Text style={{ color: C.dim, fontSize: 13, marginTop: 4 }}>
+          Not configured. Add EXPO_PUBLIC_SUPABASE_URL and _ANON_KEY (see README) to sync across devices.
+        </Text>
+      </Card>
+    );
+  }
+
+  const s = SYNC_LABEL[syncStatus];
+  return (
+    <Card>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <Text style={styles.cardTitle}>Account</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: s.color }} />
+          <Text style={{ color: s.color, fontSize: 12 }}>{s.text}</Text>
+        </View>
+      </View>
+      <Text style={{ color: C.dim, fontSize: 13, marginBottom: 12 }}>
+        Signed in as <Text style={{ color: C.text }}>{user?.email}</Text>
+      </Text>
+      <View style={{ flexDirection: "row", gap: 8 }}>
+        <Pressable
+          style={styles.secondaryBtn}
+          disabled={busy}
+          onPress={async () => { setBusy(true); await syncNow(); setBusy(false); }}
+        >
+          <Text style={{ color: C.text, fontWeight: "600" }}>🔄 Sync now</Text>
+        </Pressable>
+        <Pressable style={styles.secondaryBtn} onPress={() => signOut()}>
+          <Text style={{ color: C.danger, fontWeight: "600" }}>Sign out</Text>
+        </Pressable>
+      </View>
+    </Card>
   );
 }
 

@@ -9,6 +9,7 @@ import {
   newId,
   seedHabits,
 } from "@habit/core";
+import { enqueue, registerStore } from "./sync";
 
 const STORAGE_KEY = "habit-tracker.v1";
 
@@ -70,6 +71,16 @@ function setState(updater: (s: AppState) => AppState) {
   emit();
 }
 
+/** Replace the whole state without emitting cloud writes (used by cloud pull). */
+function replaceState(next: AppState) {
+  state = next;
+  persist();
+  emit();
+}
+
+// Let the sync layer read/replace state without a circular import.
+registerStore({ getState: () => state, replaceState });
+
 function subscribe(cb: () => void) {
   listeners.add(cb);
   load();
@@ -88,12 +99,19 @@ function getServerSnapshot() {
 
 export const actions = {
   toggle(habitId: string, dateKey: string) {
+    let done = false;
     setState((s) => {
       const day = { ...(s.entries[dateKey] ?? {}) };
-      if (day[habitId]) delete day[habitId];
-      else day[habitId] = true;
+      if (day[habitId]) {
+        delete day[habitId];
+        done = false;
+      } else {
+        day[habitId] = true;
+        done = true;
+      }
       return { ...s, entries: { ...s.entries, [dateKey]: day } };
     });
+    enqueue({ k: "entry_set", habitId, date: dateKey, done });
   },
 
   setDone(habitId: string, dateKey: string, done: boolean) {
@@ -103,9 +121,11 @@ export const actions = {
       else delete day[habitId];
       return { ...s, entries: { ...s.entries, [dateKey]: day } };
     });
+    enqueue({ k: "entry_set", habitId, date: dateKey, done });
   },
 
   addHabit(input: Omit<Habit, "id" | "order" | "createdAt" | "archived">) {
+    let created: Habit | null = null;
     setState((s) => {
       const order = s.habits.length
         ? Math.max(...s.habits.map((h) => h.order)) + 1
@@ -117,15 +137,23 @@ export const actions = {
         archived: false,
         createdAt: new Date().toISOString(),
       };
+      created = habit;
       return { ...s, habits: [...s.habits, habit] };
     });
+    if (created) enqueue({ k: "habit_upsert", habit: created });
   },
 
   updateHabit(id: string, patch: Partial<Habit>) {
+    let updated: Habit | null = null;
     setState((s) => ({
       ...s,
-      habits: s.habits.map((h) => (h.id === id ? { ...h, ...patch } : h)),
+      habits: s.habits.map((h) => {
+        if (h.id !== id) return h;
+        updated = { ...h, ...patch };
+        return updated;
+      }),
     }));
+    if (updated) enqueue({ k: "habit_upsert", habit: updated });
   },
 
   deleteHabit(id: string) {
@@ -136,8 +164,13 @@ export const actions = {
         delete rest[id];
         entries[dk] = rest;
       }
-      return { ...s, habits: s.habits.filter((h) => h.id !== id), entries };
+      return {
+        ...s,
+        habits: s.habits.filter((h) => h.id !== id),
+        entries,
+      };
     });
+    enqueue({ k: "habit_delete", id });
   },
 
   reorderHabits(orderedIds: string[]) {
@@ -145,15 +178,29 @@ export const actions = {
       const pos = new Map(orderedIds.map((id, i) => [id, i]));
       return {
         ...s,
-        habits: s.habits.map((h) => ({ ...h, order: pos.get(h.id) ?? h.order })),
+        habits: s.habits.map((h) => ({
+          ...h,
+          order: pos.get(h.id) ?? h.order,
+        })),
       };
     });
+    for (const h of state.habits) enqueue({ k: "habit_upsert", habit: h });
   },
 
   setMental(dateKey: string, patch: Partial<MentalDay>) {
     setState((s) => {
       const prev = s.mental[dateKey] ?? { mood: 0, motivation: 0 };
-      return { ...s, mental: { ...s.mental, [dateKey]: { ...prev, ...patch } } };
+      return {
+        ...s,
+        mental: { ...s.mental, [dateKey]: { ...prev, ...patch } },
+      };
+    });
+    const m = state.mental[dateKey];
+    enqueue({
+      k: "mental_upsert",
+      date: dateKey,
+      mood: m.mood,
+      motivation: m.motivation,
     });
   },
 
@@ -164,10 +211,25 @@ export const actions = {
       entries: next.entries ?? {},
       mental: next.mental ?? {},
     }));
+    // Replace the cloud copy with the imported data.
+    enqueue({ k: "reset" });
+    for (const h of state.habits) enqueue({ k: "habit_upsert", habit: h });
+    for (const [date, day] of Object.entries(state.entries)) {
+      for (const [habitId, done] of Object.entries(day)) {
+        if (done) enqueue({ k: "entry_set", habitId, date, done: true });
+      }
+    }
+    for (const [date, m] of Object.entries(state.mental)) {
+      if (m.mood || m.motivation) {
+        enqueue({ k: "mental_upsert", date, mood: m.mood, motivation: m.motivation });
+      }
+    }
   },
 
   reset() {
     setState(() => emptyState());
+    enqueue({ k: "reset" });
+    for (const h of state.habits) enqueue({ k: "habit_upsert", habit: h });
   },
 };
 
@@ -181,6 +243,7 @@ export function useAppState(): AppState {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
+/** True once localStorage has been read on the client (avoids flash of seed). */
 export function useHydrated(): boolean {
   return useSyncExternalStore(
     subscribe,

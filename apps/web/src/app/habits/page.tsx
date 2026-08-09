@@ -14,6 +14,8 @@ import { HabitForm, HabitDraft } from "../../components/HabitForm";
 import { Heatmap, CellState } from "../../components/Heatmap";
 import { Card, PageHeader } from "../../components/ui";
 import { HabitGlyph } from "../../components/HabitGlyph";
+import { useAuth } from "../../lib/auth";
+import { syncNow, useSyncStatus, SyncStatus } from "../../lib/sync";
 
 export default function HabitsPage() {
   const hydrated = useHydrated();
@@ -94,6 +96,8 @@ export default function HabitsPage() {
           </Card>
         )}
       </div>
+
+      <AccountCard />
 
       <BackupCard />
 
@@ -210,6 +214,73 @@ function HabitManageCard({
           </span>
         </div>
         <Heatmap year={year} color={habit.color} getState={getState} />
+      </div>
+    </Card>
+  );
+}
+
+const SYNC_LABEL: Record<SyncStatus, { text: string; color: string }> = {
+  idle: { text: "Idle", color: "var(--text-faint)" },
+  syncing: { text: "Syncing…", color: "#f59e0b" },
+  synced: { text: "Synced", color: "var(--accent)" },
+  offline: { text: "Offline — will sync later", color: "#f59e0b" },
+  error: { text: "Sync error — will retry", color: "var(--danger)" },
+};
+
+function AccountCard() {
+  const { status, user, signOut } = useAuth();
+  const syncStatus = useSyncStatus();
+  const [busy, setBusy] = useState(false);
+
+  if (status === "unconfigured") {
+    return (
+      <Card>
+        <h2 className="font-semibold mb-1">Cloud sync</h2>
+        <p className="text-sm text-text-dim">
+          Not configured. Add your Supabase URL and anon key (see README) to
+          sync your habits across devices. Until then, data stays on this device.
+        </p>
+      </Card>
+    );
+  }
+
+  const s = SYNC_LABEL[syncStatus];
+
+  async function doSync() {
+    setBusy(true);
+    await syncNow();
+    setBusy(false);
+  }
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="font-semibold">Account</h2>
+        <span className="flex items-center gap-1.5 text-xs" style={{ color: s.color }}>
+          <span
+            className="inline-block w-2 h-2 rounded-full"
+            style={{ background: s.color }}
+          />
+          {s.text}
+        </span>
+      </div>
+      <p className="text-sm text-text-dim mb-3 truncate">
+        Signed in as <span className="text-text">{user?.email}</span>
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <button
+          onClick={doSync}
+          disabled={busy}
+          className="rounded-xl bg-bg-elev-2 px-4 py-2.5 text-sm font-medium disabled:opacity-50"
+        >
+          🔄 Sync now
+        </button>
+        <button
+          onClick={() => signOut()}
+          className="rounded-xl bg-bg-elev-2 px-4 py-2.5 text-sm font-medium text-danger"
+        >
+          Sign out
+        </button>
       </div>
     </Card>
   );

@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { NavBar } from "../components/NavBar";
+import { Providers } from "../components/Providers";
 
 export const metadata: Metadata = {
   title: "Habit Tracker",
@@ -31,10 +31,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full">
       <body className="min-h-full flex flex-col">
-        <div className="flex-1 w-full max-w-5xl mx-auto px-3 sm:px-5 pb-28 pt-4">
-          {children}
-        </div>
-        <NavBar />
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

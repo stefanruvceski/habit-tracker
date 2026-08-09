@@ -8,6 +8,7 @@ import {
   newId,
   seedHabits,
 } from "@habit/core";
+import { enqueue, registerStore } from "./sync";
 
 const STORAGE_KEY = "habit-tracker.v1";
 
@@ -68,6 +69,14 @@ function setState(updater: (s: AppState) => AppState) {
   emit();
 }
 
+function replaceState(next: AppState) {
+  state = next;
+  void persist();
+  emit();
+}
+
+registerStore({ getState: () => state, replaceState });
+
 function subscribe(cb: () => void) {
   listeners.add(cb);
   void load();
@@ -97,15 +106,23 @@ export function useHabits(includeArchived = false): Habit[] {
 
 export const actions = {
   toggle(habitId: string, dateKey: string) {
+    let done = false;
     setState((s) => {
       const day = { ...(s.entries[dateKey] ?? {}) };
-      if (day[habitId]) delete day[habitId];
-      else day[habitId] = true;
+      if (day[habitId]) {
+        delete day[habitId];
+        done = false;
+      } else {
+        day[habitId] = true;
+        done = true;
+      }
       return { ...s, entries: { ...s.entries, [dateKey]: day } };
     });
+    enqueue({ k: "entry_set", habitId, date: dateKey, done });
   },
 
   addHabit(input: Omit<Habit, "id" | "order" | "createdAt" | "archived">) {
+    let created: Habit | null = null;
     setState((s) => {
       const order = s.habits.length
         ? Math.max(...s.habits.map((h) => h.order)) + 1
@@ -117,15 +134,23 @@ export const actions = {
         archived: false,
         createdAt: new Date().toISOString(),
       };
+      created = habit;
       return { ...s, habits: [...s.habits, habit] };
     });
+    if (created) enqueue({ k: "habit_upsert", habit: created });
   },
 
   updateHabit(id: string, patch: Partial<Habit>) {
+    let updated: Habit | null = null;
     setState((s) => ({
       ...s,
-      habits: s.habits.map((h) => (h.id === id ? { ...h, ...patch } : h)),
+      habits: s.habits.map((h) => {
+        if (h.id !== id) return h;
+        updated = { ...h, ...patch };
+        return updated;
+      }),
     }));
+    if (updated) enqueue({ k: "habit_upsert", habit: updated });
   },
 
   deleteHabit(id: string) {
@@ -138,6 +163,7 @@ export const actions = {
       }
       return { ...s, habits: s.habits.filter((h) => h.id !== id), entries };
     });
+    enqueue({ k: "habit_delete", id });
   },
 
   reorderHabits(orderedIds: string[]) {
@@ -148,6 +174,7 @@ export const actions = {
         habits: s.habits.map((h) => ({ ...h, order: pos.get(h.id) ?? h.order })),
       };
     });
+    for (const h of state.habits) enqueue({ k: "habit_upsert", habit: h });
   },
 
   setMental(dateKey: string, patch: Partial<MentalDay>) {
@@ -155,19 +182,35 @@ export const actions = {
       const prev = s.mental[dateKey] ?? { mood: 0, motivation: 0 };
       return { ...s, mental: { ...s.mental, [dateKey]: { ...prev, ...patch } } };
     });
+    const m = state.mental[dateKey];
+    enqueue({ k: "mental_upsert", date: dateKey, mood: m.mood, motivation: m.motivation });
   },
 
   importState(next: AppState) {
-    setState(() => ({
+    replaceState({
       version: CURRENT_VERSION,
       habits: next.habits ?? [],
       entries: next.entries ?? {},
       mental: next.mental ?? {},
-    }));
+    });
+    enqueue({ k: "reset" });
+    for (const h of state.habits) enqueue({ k: "habit_upsert", habit: h });
+    for (const [date, day] of Object.entries(state.entries)) {
+      for (const [habitId, done] of Object.entries(day)) {
+        if (done) enqueue({ k: "entry_set", habitId, date, done: true });
+      }
+    }
+    for (const [date, m] of Object.entries(state.mental)) {
+      if (m.mood || m.motivation) {
+        enqueue({ k: "mental_upsert", date, mood: m.mood, motivation: m.motivation });
+      }
+    }
   },
 
   reset() {
-    setState(() => emptyState());
+    replaceState(emptyState());
+    enqueue({ k: "reset" });
+    for (const h of state.habits) enqueue({ k: "habit_upsert", habit: h });
   },
 };
 
