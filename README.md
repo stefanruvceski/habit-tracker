@@ -1,63 +1,93 @@
 # Habit Tracker
 
-A minimal, **mobile-first** habit tracker built with Next.js — the web version of a
-personal habit-tracking spreadsheet, with ideas borrowed from the best habit apps
-(HabitKit, Streaks, TickTick, Habitify, HabitNow).
+A minimal, **mobile-first** habit tracker — the digital version of a personal
+habit-tracking spreadsheet, with ideas borrowed from the best habit apps (HabitKit,
+Streaks, TickTick, Habitify, HabitNow). It ships as **two apps that share one core**:
 
-Everything lives **on your device** (browser `localStorage`) — no account, no server,
-no login. Open it in your phone browser and check off your day with one tap. Add it to
-your home screen (it's a PWA) and it behaves like an app.
+- **Web** — a Next.js PWA (`apps/web`)
+- **Mobile** — a native iOS/Android app built with Expo / React Native (`apps/mobile`)
 
-## Features
+Data is stored **on the device** (browser `localStorage` on web, `AsyncStorage` on
+mobile). Cloud sync across devices (Supabase) is added in a follow-up.
 
-- **Today view** — one-tap check-in for the day, per-habit streaks, mood & motivation
-  sliders, and a progress ring. Step back to log previous days.
-- **Month view** — the spreadsheet-style grid (habits × days) you're used to, with a
-  month/year selector, per-day Done/% tallies, a daily-progress chart, per-habit
-  completion analysis, a mood/motivation chart, and best-streak highlights.
-- **Yearly dashboard** — 12 month cards (habits, completed, progress %, mindset score)
-  plus a trend chart of progress and mindset across the year.
-- **Configurable habits** — add / edit / delete, reorder, custom emoji + color, and
-  **build** vs **quit** habits.
-- **Flexible scheduling** — daily, specific weekdays, or an *X times per week* target.
-- **GitHub-style heatmaps** — a contribution graph per habit (last 26 weeks).
-- **Streaks** — current and best streak per habit.
-- **Backup** — export/import your whole history as a JSON file to move between devices.
+## Monorepo layout
 
-## Tech
+```
+habit-tracker/
+├─ apps/
+│  ├─ web/      Next.js 16 app (PWA)
+│  └─ mobile/   Expo (React Native) app
+└─ packages/
+   └─ core/     shared domain logic (types, dates, stats, streaks) — @habit/core
+```
 
-- Next.js 16 (App Router) + React 19 + TypeScript
-- Tailwind CSS v4
-- SVG charts & heatmaps (no chart libraries), so the bundle stays tiny
-- State persisted to `localStorage` via a small `useSyncExternalStore` store
+`@habit/core` holds all the platform-agnostic logic (habit scheduling, streaks,
+month/year aggregation, mindset score) so the web and mobile apps compute everything
+identically. Each app implements its own UI and local storage.
 
-## Data model
+## Features (both apps)
 
-All state is one JSON object (see `src/lib/types.ts`):
+- **Today** — one-tap check-in, per-habit 🔥 streaks, progress ring, mood & motivation.
+- **Month** — the spreadsheet-style grid (habits × days), month/year selector, per-day
+  Done/% tallies, daily-progress chart, per-habit analysis, best-streak highlights.
+- **Year** — 12 month cards (habits, completed, progress %, mindset) + a trend chart.
+- **Habits** — add / edit / delete, reorder, custom emoji + color, **build** vs **quit**,
+  flexible schedule (daily / specific weekdays / X-per-week), GitHub-style heatmaps.
 
-- `habits` — habit definitions (name, emoji, color, type, schedule)
-- `entries` — completions keyed by `YYYY-MM-DD` → `{ habitId: true }`
-- `mental` — mood/motivation (0–100) keyed by `YYYY-MM-DD`
-
-## Getting started
+## Install (root, npm workspaces)
 
 ```bash
 npm install
-npm run dev      # http://localhost:3000
+```
+
+## Run the web app
+
+```bash
+npm run dev          # http://localhost:3000
 ```
 
 Build for production:
 
 ```bash
-npm run build
-npm run start
+npm run build:web
 ```
 
-The first launch seeds a starter set of habits (mirroring the original spreadsheet).
-Edit or delete them on the **Habits** tab.
+## Run the mobile app
 
-## Notes
+```bash
+cd apps/mobile
+npx expo start       # scan the QR code with Expo Go
+```
 
-- Data is local to each browser/device. Use **Export** on the Habits tab to back up,
-  and **Import** to restore or move to another phone.
-- To deploy, any static-friendly Next.js host works (e.g. Vercel).
+- **Expo Go** (fastest): install *Expo Go* from the App Store / Play Store and scan the
+  QR code to run it on your phone immediately.
+- **Standalone build** (installable `.apk` / `.ipa`) via [EAS](https://docs.expo.dev/build/setup/):
+  ```bash
+  npm i -g eas-cli
+  eas login
+  eas build:configure
+  eas build -p android --profile preview   # APK you can sideload
+  eas build -p ios --profile preview       # needs an Apple developer account
+  ```
+
+## Data model
+
+Client state is one JSON object (see `packages/core/src/types.ts`):
+
+- `habits` — habit definitions (name, emoji, color, type, schedule)
+- `entries` — completions keyed by `YYYY-MM-DD` → `{ habitId: true }`
+- `mental` — mood/motivation (0–100) keyed by `YYYY-MM-DD`
+
+The first launch seeds a starter set of habits (mirroring the original spreadsheet);
+edit or delete them on the **Habits** tab. On web, use **Export / Import** on the
+Habits tab to back up or move your data.
+
+## Scripts (from the repo root)
+
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | Start the web dev server |
+| `npm run build:web` | Production build of the web app |
+| `npm run lint:web` | Lint the web app |
+| `npm run mobile` | Start the Expo dev server |
+| `npm run typecheck` | Type-check the shared core + web |
