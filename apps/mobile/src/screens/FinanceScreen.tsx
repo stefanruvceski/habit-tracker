@@ -14,6 +14,7 @@ import {
   monthTotals,
   sourceDistribution,
   todayKey,
+  txBase,
 } from "@habit/core";
 import {
   financeActions,
@@ -299,9 +300,17 @@ function RecentTransactions() {
                 {t.note ? ` · ${t.note}` : ""}
               </Text>
             </View>
-            <Text style={{ color: C.text, fontSize: 13, fontWeight: "700" }}>
-              {fmtMoney(t.amount, t.currency)}
-            </Text>
+            <View style={{ alignItems: "flex-end" }}>
+              <Text style={{ color: C.text, fontSize: 13, fontWeight: "700" }}>
+                {fmtMoney(t.amount, t.currency)}
+              </Text>
+              {t.currency !== state.baseCurrency && (
+                <Text style={{ color: C.faint, fontSize: 10 }}>
+                  ≈ {fmtMoney(txBase(state, t), state.baseCurrency)}
+                  {t.fxRate ? ` @ ${Number(t.fxRate.toFixed(2))}` : ""}
+                </Text>
+              )}
+            </View>
             <Pressable onPress={() => financeActions.deleteTransaction(t.id)} hitSlop={8}>
               <Text style={{ color: C.faint, fontSize: 20, paddingHorizontal: 4 }}>×</Text>
             </Pressable>

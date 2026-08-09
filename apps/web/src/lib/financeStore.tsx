@@ -10,6 +10,7 @@ import {
   Transaction,
   emptyFinanceState,
   fetchFxRates,
+  fetchFxRateOn,
   fxRateStale,
   newFinanceId,
 } from "@habit/core";
@@ -169,6 +170,28 @@ async function refreshFx(force: boolean) {
   }
 }
 
+/**
+ * Look up the exchange rate for a transaction's date and store it on the
+ * transaction, so its base-currency value reflects the day it was received.
+ * Silent on failure — the live rate is used as a fallback.
+ */
+async function lockTxRate(id: string, currency: string, date: string) {
+  if (currency === state.baseCurrency) return;
+  try {
+    const rate = await fetchFxRateOn(state.baseCurrency, currency, date);
+    if (rate && rate > 0) {
+      setState((s) => ({
+        ...s,
+        transactions: s.transactions.map((t) =>
+          t.id === id ? { ...t, fxRate: rate, fxRateDate: date } : t,
+        ),
+      }));
+    }
+  } catch {
+    // keep live-rate fallback
+  }
+}
+
 // ---- Mutations ------------------------------------------------------------
 
 export const financeActions = {
@@ -204,14 +227,13 @@ export const financeActions = {
   },
 
   addTransaction(input: Omit<Transaction, "id" | "createdAt">) {
-    setState((s) => {
-      const tx: Transaction = {
-        ...input,
-        id: newFinanceId("tx"),
-        createdAt: new Date().toISOString(),
-      };
-      return { ...s, transactions: [...s.transactions, tx] };
-    });
+    const tx: Transaction = {
+      ...input,
+      id: newFinanceId("tx"),
+      createdAt: new Date().toISOString(),
+    };
+    setState((s) => ({ ...s, transactions: [...s.transactions, tx] }));
+    void lockTxRate(tx.id, tx.currency, tx.date);
   },
 
   updateTransaction(id: string, patch: Partial<Transaction>) {
@@ -219,6 +241,17 @@ export const financeActions = {
       ...s,
       transactions: s.transactions.map((t) => (t.id === id ? { ...t, ...patch } : t)),
     }));
+    // Re-lock the historical rate when the date or currency changes.
+    if (patch.date || patch.currency) {
+      const t = state.transactions.find((x) => x.id === id);
+      if (t) void lockTxRate(id, t.currency, t.date);
+    }
+  },
+
+  /** Re-fetch and lock the historical rate for one transaction. */
+  relockTransactionRate(id: string) {
+    const t = state.transactions.find((x) => x.id === id);
+    if (t) void lockTxRate(id, t.currency, t.date);
   },
 
   deleteTransaction(id: string) {

@@ -39,6 +39,14 @@ export interface Transaction {
   status: TransactionStatus;
   note?: string;
   createdAt: string; // ISO
+  /**
+   * Base-currency units per 1 unit of `currency`, locked at the transaction's
+   * date. When set it takes precedence over the live rate, so a past payment
+   * keeps the exchange rate that applied on the day it was received.
+   */
+  fxRate?: number;
+  /** The date the locked `fxRate` was taken for (usually equals `date`). */
+  fxRateDate?: string;
 }
 
 /** FX rate: how many base-currency units one unit of `code` is worth. */
@@ -124,8 +132,14 @@ export function toBase(state: FinanceState, amount: number, code: CurrencyCode):
   return amount * rateFor(state, code);
 }
 
-/** Amount of a single transaction expressed in the base currency. */
+/**
+ * Amount of a single transaction expressed in the base currency. Prefers the
+ * rate locked on the transaction (historical, from its date); otherwise falls
+ * back to the current live/manual rate.
+ */
 export function txBase(state: FinanceState, tx: Transaction): number {
+  if (tx.currency === state.baseCurrency) return tx.amount;
+  if (typeof tx.fxRate === "number" && tx.fxRate > 0) return tx.amount * tx.fxRate;
   return toBase(state, tx.amount, tx.currency);
 }
 
@@ -503,13 +517,23 @@ export interface FxFetchResult {
  * Public endpoints for the free, keyless, CORS-enabled currency-api
  * (@fawazahmed0/currency-api). Tried in order; the CDN is primary and the
  * pages.dev host is a fallback. `{base}` is the lowercased base currency.
+ * Pass a `YYYY-MM-DD` date for historical rates; omit for the latest rates.
  */
-export function fxEndpoints(base: CurrencyCode): string[] {
+export function fxEndpoints(base: CurrencyCode, date?: string): string[] {
   const b = base.toLowerCase();
+  const version = date && date.length === 10 ? date : "latest";
+  const host = version === "latest" ? "latest" : version;
   return [
-    `https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/${b}.json`,
-    `https://latest.currency-api.pages.dev/v1/currencies/${b}.json`,
+    `https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@${version}/v1/currencies/${b}.json`,
+    `https://${host}.currency-api.pages.dev/v1/currencies/${b}.json`,
   ];
+}
+
+/** Local YYYY-MM-DD (kept here to avoid a cross-module import). */
+function localToday(): string {
+  const d = new Date();
+  const p = (n: number) => (n < 10 ? `0${n}` : `${n}`);
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
 /**
@@ -551,7 +575,7 @@ type FetchLike = (
 export async function fetchFxRates(
   base: CurrencyCode,
   codes: CurrencyCode[],
-  opts: { signal?: unknown; fetchImpl?: FetchLike } = {},
+  opts: { signal?: unknown; fetchImpl?: FetchLike; date?: string } = {},
 ): Promise<FxFetchResult> {
   const wanted = Array.from(new Set(codes.filter((c) => c && c !== base)));
   if (wanted.length === 0) {
@@ -563,7 +587,7 @@ export async function fetchFxRates(
   if (!f) throw new Error("No fetch implementation available");
 
   let lastErr: unknown = null;
-  for (const url of fxEndpoints(base)) {
+  for (const url of fxEndpoints(base, opts.date)) {
     try {
       const res = await f(url, { signal: opts.signal });
       if (!res.ok) {
@@ -582,6 +606,41 @@ export async function fetchFxRates(
     }
   }
   throw lastErr ?? new Error("FX fetch failed");
+}
+
+/**
+ * Fetch the base-per-`code` rate for a specific `date` (the day of a payment),
+ * returning null if unavailable. Today/future dates fall back to latest rates,
+ * since the provider only publishes a given day's rates afterwards.
+ */
+export async function fetchFxRateOn(
+  base: CurrencyCode,
+  code: CurrencyCode,
+  date: string,
+  opts: { signal?: unknown; fetchImpl?: FetchLike } = {},
+): Promise<number | null> {
+  if (code === base) return 1;
+  const useDate = date && date < localToday() ? date : undefined;
+  try {
+    const res = await fetchFxRates(base, [code], { ...opts, date: useDate });
+    const q = res.rates.find((r) => r.code === code);
+    return q ? q.rate : null;
+  } catch {
+    // Historical date may not exist that far back; fall back to latest rates.
+    if (useDate) {
+      try {
+        const res = await fetchFxRates(base, [code], {
+          signal: opts.signal,
+          fetchImpl: opts.fetchImpl,
+        });
+        const q = res.rates.find((r) => r.code === code);
+        return q ? q.rate : null;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
 }
 
 /** True when a rate is missing or older than `maxAgeHours` (default 12h). */

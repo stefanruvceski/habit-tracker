@@ -8,6 +8,7 @@ import {
   monthTotals,
   sourceDistribution,
   todayKey,
+  txBase,
 } from "@habit/core";
 import {
   financeActions,
@@ -334,6 +335,12 @@ function RecentTransactions() {
                 <div className="font-semibold">
                   {fmtMoney(t.amount, t.currency)}
                 </div>
+                {t.currency !== state.baseCurrency && (
+                  <div className="text-[10px] text-text-faint">
+                    ≈ {fmtMoney(txBase(state, t), state.baseCurrency)}
+                    {t.fxRate ? ` @ ${Number(t.fxRate.toFixed(2))}` : ""}
+                  </div>
+                )}
               </div>
               <button
                 onClick={() => financeActions.deleteTransaction(t.id)}

@@ -6,6 +6,7 @@ import {
   emptyFinanceState,
   rateFor,
   toBase,
+  txBase,
   monthTotals,
   yearTotal,
   sourceDistribution,
@@ -24,6 +25,7 @@ import {
   DEFAULT_LEVELS,
   parseFxResponse,
   fetchFxRates,
+  fetchFxRateOn,
   fxRateStale,
   fxEndpoints,
 } from "../src/finance.ts";
@@ -290,6 +292,61 @@ test("fxEndpoints builds CDN + fallback URLs with a lowercased base", () => {
   assert.ok(urls[0].includes("/currencies/rsd.json"));
   assert.ok(urls[0].startsWith("https://cdn.jsdelivr.net/"));
   assert.ok(urls[1].includes("currency-api.pages.dev"));
+});
+
+test("fxEndpoints pins a historical version when a date is given", () => {
+  const urls = fxEndpoints("RSD", "2026-03-15");
+  assert.ok(urls[0].includes("@2026-03-15/"));
+  assert.ok(urls[0].includes("/currencies/rsd.json"));
+  assert.ok(urls[1].startsWith("https://2026-03-15.currency-api.pages.dev"));
+});
+
+test("txBase prefers a transaction's locked fxRate over the live rate", () => {
+  const s = baseState(); // live EUR rate = 117
+  const locked = tx({ amount: 10, currency: "EUR", fxRate: 100 });
+  assert.equal(txBase(s, locked), 1000); // 10 * 100 (locked)
+  const live = tx({ amount: 10, currency: "EUR" });
+  assert.equal(txBase(s, live), 1170); // 10 * 117 (live fallback)
+});
+
+test("fetchFxRateOn requests the transaction date and returns basePerCode", async () => {
+  const seen: string[] = [];
+  const stub = async (url: string) => {
+    seen.push(url);
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ date: "2026-03-15", rsd: { eur: 1 / 100 } }),
+    };
+  };
+  const rate = await fetchFxRateOn("RSD", "EUR", "2026-03-15", { fetchImpl: stub });
+  assert.ok(Math.abs((rate ?? 0) - 100) < 1e-6);
+  assert.ok(seen[0].includes("@2026-03-15/")); // used the historical endpoint
+});
+
+test("fetchFxRateOn returns 1 for the base currency without fetching", async () => {
+  let called = false;
+  const stub = async () => {
+    called = true;
+    return { ok: true, status: 200, json: async () => ({}) };
+  };
+  const rate = await fetchFxRateOn("RSD", "RSD", "2026-03-15", { fetchImpl: stub });
+  assert.equal(rate, 1);
+  assert.equal(called, false);
+});
+
+test("fetchFxRateOn falls back to latest when the historical date 404s", async () => {
+  const seen: string[] = [];
+  const stub = async (url: string) => {
+    seen.push(url);
+    if (url.includes("@2019-01-01") || url.includes("2019-01-01.currency-api")) {
+      return { ok: false, status: 404, json: async () => ({}) };
+    }
+    return { ok: true, status: 200, json: async () => ({ rsd: { eur: 1 / 117 } }) };
+  };
+  const rate = await fetchFxRateOn("RSD", "EUR", "2019-01-01", { fetchImpl: stub });
+  assert.ok(Math.abs((rate ?? 0) - 117) < 1e-6);
+  assert.ok(seen.some((u) => u.includes("@latest/"))); // retried with latest
 });
 
 test("parseFxResponse inverts codePerBase to basePerCode for requested codes", () => {
