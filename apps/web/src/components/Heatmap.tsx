@@ -1,39 +1,41 @@
 "use client";
 
-import { addDays, todayKey, weekdayOf } from "@habit/core";
+import { useEffect, useRef } from "react";
+import { MONTH_SHORT, addDays, fromKey, mondayIndex, todayKey } from "@habit/core";
 
 export type CellState = "done" | "missed" | "off";
 
 /**
- * GitHub-style contribution heatmap: weeks as columns, weekdays as rows.
- * Ends on today and spans `weeks` columns back.
+ * GitHub-style contribution heatmap. Columns are weeks (oldest → newest); each
+ * column has 7 rows, Monday (top) → Sunday (bottom). Subtle month labels sit
+ * above the grid. Shows a full trailing year, horizontally scrollable and
+ * auto-scrolled to the right so today is visible.
  */
 export function Heatmap({
-  weeks = 26,
   color,
   getState,
-  cell = 12,
+  cell = 13,
   gap = 3,
+  weeks = 53,
 }: {
-  weeks?: number;
   color: string;
   getState: (dateKey: string) => CellState;
   cell?: number;
   gap?: number;
+  weeks?: number;
 }) {
-  const end = todayKey();
-  // Align the last column so today sits on its correct weekday row.
-  const endWeekday = weekdayOf(end);
-  const lastColStart = addDays(end, -endWeekday); // Sunday of current week
-  const firstColStart = addDays(lastColStart, -(weeks - 1) * 7);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  const cols: string[][] = [];
-  for (let w = 0; w < weeks; w++) {
-    const colStart = addDays(firstColStart, w * 7);
-    const days: string[] = [];
-    for (let d = 0; d < 7; d++) days.push(addDays(colStart, d));
-    cols.push(days);
-  }
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollLeft = el.scrollWidth;
+  }, []);
+
+  const step = cell + gap;
+  const labelH = 14;
+  const end = todayKey();
+  const mondayOfWeek = addDays(end, -mondayIndex(end));
+  const firstMonday = addDays(mondayOfWeek, -(weeks - 1) * 7);
 
   const fill = (state: CellState) => {
     if (state === "done") return color;
@@ -41,25 +43,50 @@ export function Heatmap({
     return "rgba(255,255,255,0.035)";
   };
 
-  const width = weeks * (cell + gap);
-  const height = 7 * (cell + gap);
+  // Month labels: mark a column when its (Monday) month differs from the
+  // previous labelled one, keeping a minimum spacing so they don't crowd.
+  const labels: { x: number; text: string }[] = [];
+  let lastMonth = -1;
+  let lastLabelCol = -99;
+  for (let w = 0; w < weeks; w++) {
+    const m = fromKey(addDays(firstMonday, w * 7)).getMonth();
+    if (m !== lastMonth && w - lastLabelCol >= 3) {
+      labels.push({ x: w * step, text: MONTH_SHORT[m] });
+      lastLabelCol = w;
+    }
+    lastMonth = m;
+  }
+
+  const svgWidth = weeks * step - gap;
+  const height = labelH + 7 * step - gap;
 
   return (
-    <div className="scroll-x">
-      <svg width={width} height={height} className="block">
-        {cols.map((days, w) =>
-          days.map((key, d) => {
+    <div ref={scrollRef} className="scroll-x">
+      <svg width={svgWidth} height={height} className="block">
+        {labels.map((l) => (
+          <text
+            key={`${l.x}-${l.text}`}
+            x={l.x}
+            y={labelH - 4}
+            fontSize="9"
+            fill="var(--text-faint)"
+          >
+            {l.text}
+          </text>
+        ))}
+        {Array.from({ length: weeks }).map((_, w) =>
+          Array.from({ length: 7 }).map((__, d) => {
+            const key = addDays(firstMonday, w * 7 + d);
             if (key > end) return null;
-            const state = getState(key);
             return (
               <rect
                 key={key}
-                x={w * (cell + gap)}
-                y={d * (cell + gap)}
+                x={w * step}
+                y={labelH + d * step}
                 width={cell}
                 height={cell}
                 rx={3}
-                fill={fill(state)}
+                fill={fill(getState(key))}
               >
                 <title>{key}</title>
               </rect>

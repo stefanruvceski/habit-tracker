@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, Pressable, ScrollView, StyleSheet, Dimensions } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import {
@@ -42,6 +42,21 @@ export function MonthScreen() {
   );
   const stats = monthStats(state, habits, year, month);
   const today = todayKey();
+
+  // Auto-scroll the day grid so today is centered when viewing the current month.
+  const dayScrollRef = useRef<ScrollView>(null);
+  useEffect(() => {
+    const isCurrent = year === now.getFullYear() && month === now.getMonth();
+    const viewW = Dimensions.get("window").width - NAME_W - 40;
+    // Place today near the right edge (≈1 day of margin) so recent past days
+    // are visible first when viewing the current month.
+    const x = isCurrent
+      ? Math.max(0, now.getDate() * CELL - viewW + CELL)
+      : 0;
+    const t = setTimeout(() => dayScrollRef.current?.scrollTo({ x, animated: false }), 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [year, month, habits.length]);
 
   function shift(delta: number) {
     let m = month + delta;
@@ -102,7 +117,7 @@ export function MonthScreen() {
             </View>
 
             {/* Scrollable day grid */}
-            <ScrollView horizontal showsHorizontalScrollIndicator>
+            <ScrollView ref={dayScrollRef} horizontal showsHorizontalScrollIndicator>
               <View>
                 <View style={{ flexDirection: "row", height: ROW_H }}>
                   {days.map((day) => {

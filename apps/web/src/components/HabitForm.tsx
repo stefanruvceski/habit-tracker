@@ -8,6 +8,7 @@ import {
   EMOJI_SUGGESTIONS,
   PALETTE,
   WEEKDAY_SHORT,
+  WEEKDAY_ORDER_MON,
   searchIcons,
 } from "@habit/core";
 import { HabitGlyph } from "./HabitGlyph";
@@ -265,17 +266,17 @@ export function HabitForm({
 
         {scheduleType === "weekdays" && (
           <div className="flex gap-1.5 mb-3">
-            {WEEKDAY_SHORT.map((w, i) => (
+            {WEEKDAY_ORDER_MON.map((idx) => (
               <button
-                key={i}
-                onClick={() => toggleWeekday(i)}
+                key={idx}
+                onClick={() => toggleWeekday(idx)}
                 className={`flex-1 rounded-lg py-2 text-xs font-medium transition ${
-                  weekdayDays.includes(i)
+                  weekdayDays.includes(idx)
                     ? "bg-accent text-bg"
                     : "bg-bg-elev-2 text-text-dim"
                 }`}
               >
-                {w}
+                {WEEKDAY_SHORT[idx]}
               </button>
             ))}
           </div>

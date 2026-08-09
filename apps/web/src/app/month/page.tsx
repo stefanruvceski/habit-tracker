@@ -143,6 +143,11 @@ export default function MonthPage() {
             month={month}
             days={days}
             onToggle={actions.toggle}
+            autoScrollDay={
+              year === now.getFullYear() && month === now.getMonth()
+                ? now.getDate()
+                : null
+            }
           />
         </Card>
       )}
