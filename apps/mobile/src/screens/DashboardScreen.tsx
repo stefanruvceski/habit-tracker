@@ -1,12 +1,25 @@
 import { useMemo, useState } from "react";
 import { View, Text, Pressable, ScrollView, StyleSheet, Dimensions } from "react-native";
-import { MONTH_NAMES, MONTH_SHORT, availableYears, yearSummary } from "@habit/core";
+import { MONTH_NAMES, MONTH_SHORT, availableYears, yearSummary, financeKpis } from "@habit/core";
 import { useAppState, useHabits } from "../lib/store";
+import { useFinanceState, useFinanceHydrated } from "../lib/financeStore";
 import { C, pct } from "../lib/theme";
-import { Card } from "../components/ui";
+import { Card, ProgressRing } from "../components/ui";
 import { LineChart } from "../components/Charts";
 
-export function DashboardScreen() {
+function fmtMoney(amount: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  } catch {
+    return `${Math.round(amount).toLocaleString()} ${currency}`;
+  }
+}
+
+export function DashboardScreen({ onOpenFinance }: { onOpenFinance?: () => void }) {
   const state = useAppState();
   const habits = useHabits();
   const [year, setYear] = useState(new Date().getFullYear());
@@ -49,6 +62,8 @@ export function DashboardScreen() {
         <Mini label="Active" value={`${activeMonths}/12`} />
       </View>
 
+      <FinanceGlance year={year} onOpen={onOpenFinance} />
+
       <Card>
         <LineChart
           series={[
@@ -75,6 +90,61 @@ export function DashboardScreen() {
         ))}
       </View>
     </ScrollView>
+  );
+}
+
+function FinanceGlance({ year, onOpen }: { year: number; onOpen?: () => void }) {
+  const hydrated = useFinanceHydrated();
+  const state = useFinanceState();
+  const now = new Date();
+  const refMonth = year === now.getFullYear() ? now.getMonth() : 11;
+  const kpis = useMemo(
+    () => financeKpis(state, year, refMonth),
+    [state, year, refMonth],
+  );
+
+  if (!hydrated) return null;
+
+  const base = state.baseCurrency;
+  const hasData = kpis.paidTotal > 0 || kpis.invoicedTotal > 0 || state.goal.target > 0;
+
+  if (!hasData) {
+    return (
+      <Pressable onPress={onOpen} style={styles.financeEmpty}>
+        <Text style={{ color: C.dim, fontSize: 13 }}>💸 Track your income too →</Text>
+      </Pressable>
+    );
+  }
+
+  return (
+    <Pressable onPress={onOpen}>
+      <Card>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 10 }}>
+          <Text style={{ color: C.dim, fontSize: 13, fontWeight: "700" }}>Finance</Text>
+          <Text style={{ color: C.faint, fontSize: 12 }}>View →</Text>
+        </View>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
+          {state.goal.target > 0 && (
+            <ProgressRing value={kpis.progress} size={68} stroke={8} label={pct(kpis.progress)} />
+          )}
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: C.faint, fontSize: 10, letterSpacing: 0.5 }}>
+              RECEIVED {year}
+            </Text>
+            <Text style={{ color: C.text, fontSize: 20, fontWeight: "800", marginTop: 2 }} numberOfLines={1}>
+              {fmtMoney(kpis.paidTotal, base)}
+            </Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 4 }}>
+              {state.goal.target > 0 && (
+                <Text style={{ color: C.dim, fontSize: 12 }}>Goal {fmtMoney(state.goal.target, base)}</Text>
+              )}
+              {kpis.level && <Text style={{ color: C.dim, fontSize: 12 }}>Level {kpis.level.name}</Text>}
+              {kpis.best && <Text style={{ color: C.dim, fontSize: 12 }}>Best {kpis.best.label}</Text>}
+            </View>
+          </View>
+        </View>
+      </Card>
+    </Pressable>
   );
 }
 
@@ -116,4 +186,13 @@ const styles = StyleSheet.create({
   title: { color: C.text, fontSize: 22, fontWeight: "800" },
   yBtn: { width: 34, height: 34, borderRadius: 10, borderWidth: 1, borderColor: C.border, backgroundColor: C.elev, alignItems: "center", justifyContent: "center" },
   navArrow: { color: C.text, fontSize: 18 },
+  financeEmpty: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: C.border,
+    backgroundColor: C.elev,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
 });

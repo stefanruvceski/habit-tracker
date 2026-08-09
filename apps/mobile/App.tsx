@@ -39,7 +39,11 @@ function Shell() {
   return (
     <SafeAreaView style={styles.root} edges={["top", "left", "right"]}>
       <View style={{ flex: 1 }}>
-        <Active />
+        {tab === "year" ? (
+          <DashboardScreen onOpenFinance={() => setTab("finance")} />
+        ) : (
+          <Active />
+        )}
       </View>
       <View style={styles.tabBar}>
         {TABS.map((t) => {

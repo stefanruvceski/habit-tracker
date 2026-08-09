@@ -1,11 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useAppState, useHabits, useHydrated } from "../../lib/store";
-import { availableYears, yearSummary } from "@habit/core";
+import { availableYears, yearSummary, financeKpis } from "@habit/core";
 import { MONTH_NAMES, MONTH_SHORT } from "@habit/core";
+import { useFinanceState, useFinanceHydrated } from "../../lib/financeStore";
 import { LineChart } from "../../components/LineChart";
-import { Card, PageHeader, pct } from "../../components/ui";
+import { Card, PageHeader, ProgressRing, pct } from "../../components/ui";
 
 export default function DashboardPage() {
   const hydrated = useHydrated();
@@ -57,6 +59,9 @@ export default function DashboardPage() {
         }
       />
 
+      {/* Finance at a glance */}
+      <FinanceGlance year={year} />
+
       {/* Year-level summary */}
       <div className="grid grid-cols-3 gap-2">
         <MiniStat label="Avg progress" value={pct(yearAvg)} accent="var(--accent)" />
@@ -103,6 +108,84 @@ export default function DashboardPage() {
         ))}
       </div>
     </div>
+  );
+}
+
+function fmtMoney(amount: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  } catch {
+    return `${Math.round(amount).toLocaleString()} ${currency}`;
+  }
+}
+
+function FinanceGlance({ year }: { year: number }) {
+  const hydrated = useFinanceHydrated();
+  const state = useFinanceState();
+  const now = new Date();
+  const refMonth = year === now.getFullYear() ? now.getMonth() : 11;
+  const kpis = useMemo(
+    () => financeKpis(state, year, refMonth),
+    [state, year, refMonth],
+  );
+
+  if (!hydrated) return null;
+
+  const base = state.baseCurrency;
+  const hasData = kpis.paidTotal > 0 || kpis.invoicedTotal > 0 || state.goal.target > 0;
+
+  if (!hasData) {
+    return (
+      <Link
+        href="/finance"
+        className="block rounded-2xl border border-dashed border-border bg-bg-elev px-4 py-3 text-sm text-text-dim hover:text-text hover:border-accent transition-colors"
+      >
+        💸 Track your income too →
+      </Link>
+    );
+  }
+
+  return (
+    <Link href="/finance" className="block">
+      <Card className="hover:border-accent transition-colors">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold text-text-dim">Finance</h2>
+          <span className="text-xs text-text-faint">View →</span>
+        </div>
+        <div className="flex items-center gap-4">
+          {state.goal.target > 0 ? (
+            <ProgressRing
+              value={kpis.progress}
+              size={72}
+              stroke={8}
+              color="var(--accent)"
+              label={
+                <span className="text-sm font-semibold">{pct(kpis.progress)}</span>
+              }
+            />
+          ) : null}
+          <div className="flex-1 min-w-0">
+            <div className="text-[11px] uppercase tracking-wide text-text-faint">
+              Received {year}
+            </div>
+            <div className="text-xl font-bold tabular-nums truncate">
+              {fmtMoney(kpis.paidTotal, base)}
+            </div>
+            <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1 text-xs text-text-dim">
+              {state.goal.target > 0 && (
+                <span>Goal {fmtMoney(state.goal.target, base)}</span>
+              )}
+              {kpis.level && <span>Level {kpis.level.name}</span>}
+              {kpis.best && <span>Best {kpis.best.label}</span>}
+            </div>
+          </div>
+        </div>
+      </Card>
+    </Link>
   );
 }
 
