@@ -1,39 +1,48 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { addDays, todayKey, weekdayOf } from "@habit/core";
 
 export type CellState = "done" | "missed" | "off";
 
 /**
  * GitHub-style contribution heatmap: weeks as columns, weekdays as rows.
- * Ends on today and spans `weeks` columns back.
+ * Ends on today and fits the container width (most recent weeks), so the
+ * latest days are always visible without horizontal scrolling.
  */
 export function Heatmap({
-  weeks = 26,
   color,
   getState,
-  cell = 12,
+  cell = 13,
   gap = 3,
+  maxWeeks = 30,
 }: {
-  weeks?: number;
   color: string;
   getState: (dateKey: string) => CellState;
   cell?: number;
   gap?: number;
+  maxWeeks?: number;
 }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const update = () => setWidth(el.clientWidth);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const step = cell + gap;
+  const weeks = Math.max(6, Math.min(maxWeeks, Math.floor((width + gap) / step)));
+
   const end = todayKey();
-  // Align the last column so today sits on its correct weekday row.
   const endWeekday = weekdayOf(end);
   const lastColStart = addDays(end, -endWeekday); // Sunday of current week
   const firstColStart = addDays(lastColStart, -(weeks - 1) * 7);
-
-  const cols: string[][] = [];
-  for (let w = 0; w < weeks; w++) {
-    const colStart = addDays(firstColStart, w * 7);
-    const days: string[] = [];
-    for (let d = 0; d < 7; d++) days.push(addDays(colStart, d));
-    cols.push(days);
-  }
 
   const fill = (state: CellState) => {
     if (state === "done") return color;
@@ -41,32 +50,34 @@ export function Heatmap({
     return "rgba(255,255,255,0.035)";
   };
 
-  const width = weeks * (cell + gap);
-  const height = 7 * (cell + gap);
+  const svgWidth = weeks * step - gap;
+  const height = 7 * step - gap;
 
   return (
-    <div className="scroll-x">
-      <svg width={width} height={height} className="block">
-        {cols.map((days, w) =>
-          days.map((key, d) => {
-            if (key > end) return null;
-            const state = getState(key);
-            return (
-              <rect
-                key={key}
-                x={w * (cell + gap)}
-                y={d * (cell + gap)}
-                width={cell}
-                height={cell}
-                rx={3}
-                fill={fill(state)}
-              >
-                <title>{key}</title>
-              </rect>
-            );
-          }),
-        )}
-      </svg>
+    <div ref={ref} className="w-full">
+      {width > 0 && (
+        <svg width={svgWidth} height={height} className="block">
+          {Array.from({ length: weeks }).map((_, w) =>
+            Array.from({ length: 7 }).map((__, d) => {
+              const key = addDays(firstColStart, w * 7 + d);
+              if (key > end) return null;
+              return (
+                <rect
+                  key={key}
+                  x={w * step}
+                  y={d * step}
+                  width={cell}
+                  height={cell}
+                  rx={3}
+                  fill={fill(getState(key))}
+                >
+                  <title>{key}</title>
+                </rect>
+              );
+            }),
+          )}
+        </svg>
+      )}
     </div>
   );
 }
