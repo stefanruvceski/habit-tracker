@@ -9,6 +9,14 @@
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0a0f1e",
     "newArchEnabled": true,
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "color": "#34d399"
+        }
+      ]
+    ],
     "splash": {
       "backgroundColor": "#0a0f1e",
       "resizeMode": "contain",
