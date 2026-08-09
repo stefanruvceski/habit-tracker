@@ -2,12 +2,18 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ComponentType } from "react";
+import { TodayIcon, MonthIcon, YearIcon, HabitsIcon } from "./icons";
 
-const TABS = [
-  { href: "/", label: "Today", icon: "✅" },
-  { href: "/month", label: "Month", icon: "📅" },
-  { href: "/dashboard", label: "Year", icon: "📊" },
-  { href: "/habits", label: "Habits", icon: "⚙️" },
+const TABS: {
+  href: string;
+  label: string;
+  Icon: ComponentType<{ size?: number }>;
+}[] = [
+  { href: "/", label: "Today", Icon: TodayIcon },
+  { href: "/month", label: "Month", Icon: MonthIcon },
+  { href: "/dashboard", label: "Year", Icon: YearIcon },
+  { href: "/habits", label: "Habits", Icon: HabitsIcon },
 ];
 
 export function NavBar() {
@@ -18,19 +24,19 @@ export function NavBar() {
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <div className="max-w-5xl mx-auto grid grid-cols-4">
-        {TABS.map((t) => {
+        {TABS.map(({ href, label, Icon }) => {
           const active =
-            t.href === "/" ? pathname === "/" : pathname.startsWith(t.href);
+            href === "/" ? pathname === "/" : pathname.startsWith(href);
           return (
             <Link
-              key={t.href}
-              href={t.href}
-              className={`flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-medium transition-colors ${
+              key={href}
+              href={href}
+              className={`flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors ${
                 active ? "text-accent" : "text-text-faint"
               }`}
             >
-              <span className="text-lg leading-none">{t.icon}</span>
-              {t.label}
+              <Icon size={22} />
+              {label}
             </Link>
           );
         })}
