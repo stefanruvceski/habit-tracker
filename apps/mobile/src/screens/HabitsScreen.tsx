@@ -13,6 +13,8 @@ export function HabitsScreen() {
   const habits = useHabits();
   const [editing, setEditing] = useState<Habit | null>(null);
   const [creating, setCreating] = useState(false);
+  const [year, setYear] = useState(new Date().getFullYear());
+  const thisYear = new Date().getFullYear();
 
   function move(id: string, dir: -1 | 1) {
     const ids = habits.map((h) => h.id);
@@ -39,6 +41,21 @@ export function HabitsScreen() {
         </View>
         <Pressable style={styles.newBtn} onPress={() => setCreating(true)}>
           <Text style={{ color: C.bg, fontWeight: "700" }}>+ New</Text>
+        </Pressable>
+      </View>
+
+      {/* Year switcher — controls all habit heatmaps */}
+      <View style={styles.yearRow}>
+        <Pressable style={styles.yearBtn} onPress={() => setYear((y) => y - 1)}>
+          <Text style={styles.yearArrow}>‹</Text>
+        </Pressable>
+        <Text style={styles.yearLabel}>{year}</Text>
+        <Pressable
+          style={[styles.yearBtn, year >= thisYear && { opacity: 0.3 }]}
+          disabled={year >= thisYear}
+          onPress={() => setYear((y) => Math.min(thisYear, y + 1))}
+        >
+          <Text style={styles.yearArrow}>›</Text>
         </Pressable>
       </View>
 
@@ -72,7 +89,10 @@ export function HabitsScreen() {
               </Pressable>
             </View>
             <View style={{ marginTop: 12 }}>
-              <Heatmap color={h.color} getState={getState} />
+              <Text style={{ color: C.faint, fontSize: 10, fontWeight: "600", textAlign: "right", marginBottom: 4 }}>
+                {year}
+              </Text>
+              <Heatmap year={year} color={h.color} getState={getState} />
             </View>
           </Card>
         );
@@ -100,6 +120,10 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" },
   title: { color: C.text, fontSize: 24, fontWeight: "800" },
   newBtn: { backgroundColor: C.accent, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10 },
+  yearRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 12 },
+  yearBtn: { width: 34, height: 34, borderRadius: 10, borderWidth: 1, borderColor: C.border, backgroundColor: C.elev, alignItems: "center", justifyContent: "center" },
+  yearArrow: { color: C.dim, fontSize: 18 },
+  yearLabel: { color: C.text, fontSize: 15, fontWeight: "700", width: 56, textAlign: "center" },
   emojiBox: { width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   iconBtn: { width: 32, height: 32, borderRadius: 9, backgroundColor: C.elev2, alignItems: "center", justifyContent: "center" },
   iconTxt: { color: C.dim, fontSize: 15 },

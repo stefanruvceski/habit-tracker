@@ -21,6 +21,7 @@ export default function HabitsPage() {
   const habits = useHabits();
   const [editing, setEditing] = useState<Habit | null>(null);
   const [creating, setCreating] = useState(false);
+  const [year, setYear] = useState(new Date().getFullYear());
 
   if (!hydrated) {
     return (
@@ -52,12 +53,35 @@ export default function HabitsPage() {
         }
       />
 
+      {/* Year switcher — controls all habit heatmaps */}
+      <div className="flex items-center justify-center gap-3">
+        <button
+          onClick={() => setYear((y) => y - 1)}
+          className="w-8 h-8 grid place-items-center rounded-lg bg-bg-elev border border-border text-text-dim"
+          aria-label="Previous year"
+        >
+          ‹
+        </button>
+        <span className="text-sm font-semibold tabular-nums w-14 text-center">
+          {year}
+        </span>
+        <button
+          onClick={() => setYear((y) => Math.min(new Date().getFullYear(), y + 1))}
+          disabled={year >= new Date().getFullYear()}
+          className="w-8 h-8 grid place-items-center rounded-lg bg-bg-elev border border-border text-text-dim disabled:opacity-30"
+          aria-label="Next year"
+        >
+          ›
+        </button>
+      </div>
+
       <div className="space-y-3">
         {habits.map((h, i) => (
           <HabitManageCard
             key={h.id}
             habit={h}
             state={state}
+            year={year}
             isFirst={i === 0}
             isLast={i === habits.length - 1}
             onEdit={() => setEditing(h)}
@@ -108,6 +132,7 @@ function moveHabit(habits: Habit[], id: string, dir: -1 | 1) {
 function HabitManageCard({
   habit,
   state,
+  year,
   isFirst,
   isLast,
   onEdit,
@@ -115,6 +140,7 @@ function HabitManageCard({
 }: {
   habit: Habit;
   state: AppState;
+  year: number;
   isFirst: boolean;
   isLast: boolean;
   onEdit: () => void;
@@ -178,7 +204,12 @@ function HabitManageCard({
         </div>
       </div>
       <div className="mt-3">
-        <Heatmap color={habit.color} getState={getState} />
+        <div className="flex justify-end mb-1">
+          <span className="text-[10px] font-medium text-text-faint tabular-nums">
+            {year}
+          </span>
+        </div>
+        <Heatmap year={year} color={habit.color} getState={getState} />
       </div>
     </Card>
   );
