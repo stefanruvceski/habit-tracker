@@ -28,6 +28,8 @@ import {
   fetchFxRateOn,
   fxRateStale,
   fxEndpoints,
+  SUPPORTED_CURRENCIES,
+  SUPPORTED_CURRENCY_CODES,
 } from "../src/finance.ts";
 
 let idc = 0;
@@ -284,6 +286,16 @@ test("financeKpis bundles paid/invoiced totals, progress and level", () => {
   assert.equal(k.baseCurrency, "RSD");
   assert.equal(k.best?.month, 0);
   assert.ok(k.level !== null);
+});
+
+test("SUPPORTED_CURRENCIES covers the required set with codes and symbols", () => {
+  for (const code of ["RSD", "EUR", "USD", "GBP", "CAD", "AUD"]) {
+    assert.ok(SUPPORTED_CURRENCY_CODES.includes(code), `missing ${code}`);
+  }
+  assert.equal(SUPPORTED_CURRENCIES[0].code, "RSD"); // dinar first (default base)
+  for (const c of SUPPORTED_CURRENCIES) {
+    assert.ok(c.name.length > 0 && c.symbol.length > 0);
+  }
 });
 
 test("fxEndpoints builds CDN + fallback URLs with a lowercased base", () => {

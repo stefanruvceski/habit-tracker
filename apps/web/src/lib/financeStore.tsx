@@ -266,7 +266,22 @@ export const financeActions = {
   },
 
   setBaseCurrency(code: string) {
-    setState((s) => ({ ...s, baseCurrency: code }));
+    // FX table and per-transaction locked rates are relative to the base, so
+    // clear them and re-derive against the new base.
+    setState((s) => ({
+      ...s,
+      baseCurrency: code,
+      fxRates: [],
+      transactions: s.transactions.map((t) => ({
+        ...t,
+        fxRate: undefined,
+        fxRateDate: undefined,
+      })),
+    }));
+    void refreshFx(true);
+    for (const t of state.transactions) {
+      if (t.currency !== code) void lockTxRate(t.id, t.currency, t.date);
+    }
   },
 
   setFxRate(code: string, rate: number) {

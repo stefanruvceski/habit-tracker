@@ -9,6 +9,7 @@ import {
   sourceDistribution,
   todayKey,
   txBase,
+  SUPPORTED_CURRENCIES,
 } from "@habit/core";
 import {
   financeActions,
@@ -449,11 +450,17 @@ function QuickAdd() {
             />
           </Field>
           <Field label="Currency">
-            <input
+            <select
               value={currency || selected?.currency || state.baseCurrency}
-              onChange={(e) => setCurrency(e.target.value.toUpperCase())}
-              className="w-full bg-bg-elev-2 border border-border rounded-lg px-3 py-2 uppercase"
-            />
+              onChange={(e) => setCurrency(e.target.value)}
+              className="w-full bg-bg-elev-2 border border-border rounded-lg px-3 py-2"
+            >
+              {SUPPORTED_CURRENCIES.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.code}
+                </option>
+              ))}
+            </select>
           </Field>
         </div>
         <div className="grid grid-cols-2 gap-2">
@@ -507,7 +514,6 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 function Settings() {
-  const state = useFinanceState();
   const [open, setOpen] = useState(false);
 
   if (!open) {
@@ -532,15 +538,38 @@ function Settings() {
           ×
         </button>
       </div>
+      <BaseCurrencyEditor />
+      <div className="h-px bg-border my-4" />
       <GoalEditor />
       <div className="h-px bg-border my-4" />
       <SourceEditor />
       <div className="h-px bg-border my-4" />
       <FxEditor />
-      <div className="mt-2 text-[11px] text-text-faint">
-        Base currency: <span className="font-medium">{state.baseCurrency}</span>
-      </div>
     </Card>
+  );
+}
+
+function BaseCurrencyEditor() {
+  const state = useFinanceState();
+  return (
+    <div>
+      <h3 className="text-xs font-semibold mb-2">Totals currency</h3>
+      <select
+        value={state.baseCurrency}
+        onChange={(e) => financeActions.setBaseCurrency(e.target.value)}
+        className="w-full bg-bg-elev-2 border border-border rounded-lg px-3 py-2"
+      >
+        {SUPPORTED_CURRENCIES.map((c) => (
+          <option key={c.code} value={c.code}>
+            {c.code} — {c.name}
+          </option>
+        ))}
+      </select>
+      <p className="text-[10px] text-text-faint mt-1.5">
+        All totals and goals are shown in this currency. Changing it re-fetches
+        the exchange rates.
+      </p>
+    </div>
   );
 }
 
@@ -633,11 +662,17 @@ function SourceEditor() {
           placeholder="New source"
           className="bg-bg-elev-2 border border-border rounded-lg px-3 py-2 text-sm"
         />
-        <input
+        <select
           value={currency}
-          onChange={(e) => setCurrency(e.target.value.toUpperCase())}
-          className="w-16 bg-bg-elev-2 border border-border rounded-lg px-2 py-2 text-sm uppercase text-center"
-        />
+          onChange={(e) => setCurrency(e.target.value)}
+          className="w-20 bg-bg-elev-2 border border-border rounded-lg px-2 py-2 text-sm"
+        >
+          {SUPPORTED_CURRENCIES.map((c) => (
+            <option key={c.code} value={c.code}>
+              {c.code}
+            </option>
+          ))}
+        </select>
         <button
           onClick={add}
           className="rounded-lg bg-bg-elev-2 border border-border px-3 text-sm font-medium"

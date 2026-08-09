@@ -13,6 +13,26 @@ const MONTH_SHORT = [
 /** ISO-4217-ish currency code. Free-form so users can add custom ones. */
 export type CurrencyCode = string;
 
+/** A currency the app offers in its pickers. */
+export interface CurrencyMeta {
+  code: CurrencyCode;
+  name: string;
+  symbol: string;
+}
+
+/** Currencies supported in the pickers (base currency + source currencies). */
+export const SUPPORTED_CURRENCIES: CurrencyMeta[] = [
+  { code: "RSD", name: "Serbian dinar", symbol: "дин" },
+  { code: "EUR", name: "Euro", symbol: "€" },
+  { code: "USD", name: "US dollar", symbol: "$" },
+  { code: "GBP", name: "British pound", symbol: "£" },
+  { code: "CAD", name: "Canadian dollar", symbol: "C$" },
+  { code: "AUD", name: "Australian dollar", symbol: "A$" },
+];
+
+export const SUPPORTED_CURRENCY_CODES: CurrencyCode[] =
+  SUPPORTED_CURRENCIES.map((c) => c.code);
+
 /** A transaction is either only invoiced (issued) or actually paid (received). */
 export type TransactionStatus = "invoiced" | "paid";
 

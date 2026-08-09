@@ -15,6 +15,7 @@ import {
   sourceDistribution,
   todayKey,
   txBase,
+  SUPPORTED_CURRENCIES,
 } from "@habit/core";
 import {
   financeActions,
@@ -397,28 +398,21 @@ function QuickAdd() {
         ))}
       </View>
 
-      <View style={{ flexDirection: "row", gap: 8 }}>
-        <View style={{ flex: 2 }}>
-          <Text style={styles.fieldLabel}>AMOUNT</Text>
-          <TextInput
-            value={amount}
-            onChangeText={setAmount}
-            keyboardType="decimal-pad"
-            placeholder="0"
-            placeholderTextColor={C.faint}
-            style={styles.input}
-          />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.fieldLabel}>CURRENCY</Text>
-          <TextInput
-            value={currency || selected?.currency || state.baseCurrency}
-            onChangeText={(v) => setCurrency(v.toUpperCase())}
-            autoCapitalize="characters"
-            style={styles.input}
-          />
-        </View>
-      </View>
+      <Text style={styles.fieldLabel}>AMOUNT</Text>
+      <TextInput
+        value={amount}
+        onChangeText={setAmount}
+        keyboardType="decimal-pad"
+        placeholder="0"
+        placeholderTextColor={C.faint}
+        style={styles.input}
+      />
+
+      <Text style={[styles.fieldLabel, { marginTop: 6 }]}>CURRENCY</Text>
+      <CurrencyChips
+        value={currency || selected?.currency || state.baseCurrency}
+        onChange={setCurrency}
+      />
 
       <View style={{ flexDirection: "row", gap: 8, marginTop: 4 }}>
         <View style={{ flex: 1 }}>
@@ -465,6 +459,36 @@ function QuickAdd() {
   );
 }
 
+function CurrencyChips({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (code: string) => void;
+}) {
+  return (
+    <View style={styles.chipRow}>
+      {SUPPORTED_CURRENCIES.map((c) => (
+        <Pressable
+          key={c.code}
+          onPress={() => onChange(c.code)}
+          style={[styles.chip, value === c.code && styles.chipOn]}
+        >
+          <Text
+            style={{
+              color: value === c.code ? C.bg : C.dim,
+              fontSize: 13,
+              fontWeight: "600",
+            }}
+          >
+            {c.code}
+          </Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
 function Settings() {
   const state = useFinanceState();
   const [open, setOpen] = useState(false);
@@ -508,6 +532,15 @@ function Settings() {
           <Text style={{ color: C.faint, fontSize: 20 }}>×</Text>
         </Pressable>
       </View>
+
+      {/* Totals currency */}
+      <Text style={[styles.fieldLabel, { marginBottom: 6 }]}>TOTALS CURRENCY</Text>
+      <CurrencyChips value={state.baseCurrency} onChange={financeActions.setBaseCurrency} />
+      <Text style={{ color: C.faint, fontSize: 10, marginTop: 4 }}>
+        All totals and goals use this currency.
+      </Text>
+
+      <View style={styles.divider} />
 
       {/* Goal + direction */}
       <Text style={styles.fieldLabel}>YEARLY TARGET ({state.baseCurrency})</Text>
@@ -568,15 +601,12 @@ function Settings() {
           placeholderTextColor={C.faint}
           style={[styles.input, { flex: 1 }]}
         />
-        <TextInput
-          value={srcCurrency}
-          onChangeText={(v) => setSrcCurrency(v.toUpperCase())}
-          autoCapitalize="characters"
-          style={[styles.input, { width: 64, textAlign: "center" }]}
-        />
         <Pressable style={styles.smallBtn} onPress={addSource}>
           <Text style={{ color: C.text, fontWeight: "600" }}>Add</Text>
         </Pressable>
+      </View>
+      <View style={{ marginTop: 6 }}>
+        <CurrencyChips value={srcCurrency} onChange={setSrcCurrency} />
       </View>
 
       {/* FX */}
