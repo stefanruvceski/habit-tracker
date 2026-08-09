@@ -22,6 +22,10 @@ import {
   financeKpis,
   financeYears,
   DEFAULT_LEVELS,
+  parseFxResponse,
+  fetchFxRates,
+  fxRateStale,
+  fxEndpoints,
 } from "../src/finance.ts";
 
 let idc = 0;
@@ -278,6 +282,91 @@ test("financeKpis bundles paid/invoiced totals, progress and level", () => {
   assert.equal(k.baseCurrency, "RSD");
   assert.equal(k.best?.month, 0);
   assert.ok(k.level !== null);
+});
+
+test("fxEndpoints builds CDN + fallback URLs with a lowercased base", () => {
+  const urls = fxEndpoints("RSD");
+  assert.equal(urls.length, 2);
+  assert.ok(urls[0].includes("/currencies/rsd.json"));
+  assert.ok(urls[0].startsWith("https://cdn.jsdelivr.net/"));
+  assert.ok(urls[1].includes("currency-api.pages.dev"));
+});
+
+test("parseFxResponse inverts codePerBase to basePerCode for requested codes", () => {
+  const data = {
+    date: "2026-08-09",
+    rsd: { eur: 1 / 117, usd: 1 / 108, gbp: 0, xyz: 0.5 },
+  };
+  const rates = parseFxResponse("RSD", ["EUR", "USD", "GBP", "MISSING"], data);
+  const byCode = new Map(rates.map((r) => [r.code, r.rate]));
+  assert.ok(Math.abs((byCode.get("EUR") ?? 0) - 117) < 1e-6);
+  assert.ok(Math.abs((byCode.get("USD") ?? 0) - 108) < 1e-6);
+  assert.equal(byCode.has("GBP"), false); // zero rate skipped
+  assert.equal(byCode.has("MISSING"), false); // absent code skipped
+});
+
+test("parseFxResponse returns [] when the base table is absent", () => {
+  assert.deepEqual(parseFxResponse("RSD", ["EUR"], { usd: { eur: 0.9 } }), []);
+  assert.deepEqual(parseFxResponse("RSD", ["EUR"], null), []);
+});
+
+test("fetchFxRates uses the first endpoint that returns matching rates", async () => {
+  const calls: string[] = [];
+  const stub = async (url: string) => {
+    calls.push(url);
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ date: "2026-08-09", rsd: { eur: 1 / 117 } }),
+    };
+  };
+  const result = await fetchFxRates("RSD", ["EUR", "RSD"], { fetchImpl: stub });
+  assert.equal(calls.length, 1); // stopped at first success
+  assert.equal(result.rates.length, 1);
+  assert.equal(result.rates[0].code, "EUR");
+  assert.ok(Math.abs(result.rates[0].rate - 117) < 1e-6);
+  assert.equal(result.date, "2026-08-09");
+});
+
+test("fetchFxRates falls back to the next endpoint on failure", async () => {
+  let n = 0;
+  const stub = async () => {
+    n += 1;
+    if (n === 1) return { ok: false, status: 500, json: async () => ({}) };
+    return { ok: true, status: 200, json: async () => ({ rsd: { usd: 1 / 108 } }) };
+  };
+  const result = await fetchFxRates("RSD", ["USD"], { fetchImpl: stub });
+  assert.equal(n, 2);
+  assert.equal(result.rates[0].code, "USD");
+});
+
+test("fetchFxRates short-circuits when no foreign codes are requested", async () => {
+  let called = false;
+  const stub = async () => {
+    called = true;
+    return { ok: true, status: 200, json: async () => ({}) };
+  };
+  const result = await fetchFxRates("RSD", ["RSD"], { fetchImpl: stub });
+  assert.equal(called, false);
+  assert.deepEqual(result.rates, []);
+});
+
+test("fetchFxRates throws when every endpoint fails", async () => {
+  const stub = async () => ({ ok: false, status: 503, json: async () => ({}) });
+  await assert.rejects(() => fetchFxRates("RSD", ["EUR"], { fetchImpl: stub }));
+});
+
+test("fxRateStale flags missing, undated and old rates", () => {
+  assert.equal(fxRateStale(undefined), true);
+  assert.equal(fxRateStale({ code: "EUR", rate: 117 }), true); // no updatedAt
+  const fresh = { code: "EUR", rate: 117, updatedAt: new Date().toISOString() };
+  assert.equal(fxRateStale(fresh), false);
+  const old = {
+    code: "EUR",
+    rate: 117,
+    updatedAt: new Date(Date.now() - 13 * 3600_000).toISOString(),
+  };
+  assert.equal(fxRateStale(old), true);
 });
 
 test("financeYears returns distinct years plus current, descending", () => {

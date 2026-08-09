@@ -13,6 +13,7 @@ import {
   financeActions,
   useFinanceHydrated,
   useFinanceState,
+  useFxRefreshing,
 } from "../../lib/financeStore";
 import { Card, PageHeader, ProgressRing, pct } from "../../components/ui";
 
@@ -643,41 +644,75 @@ function SourceEditor() {
 
 function FxEditor() {
   const state = useFinanceState();
+  const refreshing = useFxRefreshing();
   const codes = Array.from(
     new Set(state.sources.map((s) => s.currency).filter((c) => c !== state.baseCurrency)),
   );
 
+  const lastUpdated = state.fxRates
+    .filter((r) => codes.includes(r.code) && r.updatedAt)
+    .map((r) => r.updatedAt as string)
+    .sort()
+    .pop();
+
   return (
     <div>
-      <h3 className="text-xs font-semibold mb-2">
-        FX rates (1 unit → {state.baseCurrency})
-      </h3>
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-xs font-semibold">
+          FX rates (1 unit → {state.baseCurrency})
+        </h3>
+        {codes.length > 0 && (
+          <button
+            onClick={() => financeActions.refreshFxRates(true)}
+            disabled={refreshing}
+            className="text-xs font-medium px-2.5 py-1 rounded-lg bg-bg-elev-2 border border-border disabled:opacity-50"
+          >
+            {refreshing ? "Updating…" : "↻ Update"}
+          </button>
+        )}
+      </div>
       {codes.length === 0 ? (
-        <p className="text-xs text-text-faint">
-          No foreign currencies in use.
-        </p>
+        <p className="text-xs text-text-faint">No foreign currencies in use.</p>
       ) : (
-        <div className="space-y-1.5">
-          {codes.map((code) => {
-            const rate = state.fxRates.find((r) => r.code === code)?.rate ?? 1;
-            return (
-              <div key={code} className="flex items-center gap-2 text-sm">
-                <span className="w-12 font-medium">{code}</span>
-                <input
-                  inputMode="decimal"
-                  defaultValue={String(rate)}
-                  onBlur={(e) =>
-                    financeActions.setFxRate(
-                      code,
-                      parseFloat(e.target.value.replace(",", ".")) || 1,
-                    )
-                  }
-                  className="flex-1 bg-bg-elev-2 border border-border rounded-lg px-3 py-2 tabular-nums"
-                />
-              </div>
-            );
-          })}
-        </div>
+        <>
+          <div className="space-y-1.5">
+            {codes.map((code) => {
+              const entry = state.fxRates.find((r) => r.code === code);
+              const rate = entry?.rate ?? 1;
+              return (
+                <div key={`${code}-${entry?.updatedAt ?? ""}`} className="flex items-center gap-2 text-sm">
+                  <span className="w-12 font-medium">{code}</span>
+                  <input
+                    inputMode="decimal"
+                    defaultValue={String(Number(rate.toFixed(4)))}
+                    onBlur={(e) =>
+                      financeActions.setFxRate(
+                        code,
+                        parseFloat(e.target.value.replace(",", ".")) || 1,
+                      )
+                    }
+                    className="flex-1 bg-bg-elev-2 border border-border rounded-lg px-3 py-2 tabular-nums"
+                  />
+                  {entry?.manual ? (
+                    <button
+                      onClick={() => financeActions.resetFxRate(code)}
+                      className="text-[10px] text-accent-2 whitespace-nowrap"
+                    >
+                      manual · auto
+                    </button>
+                  ) : (
+                    <span className="text-[10px] text-text-faint w-12 text-right">auto</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-[10px] text-text-faint mt-2">
+            {lastUpdated
+              ? `Auto-updated ${new Date(lastUpdated).toLocaleDateString()} · rates fetched online`
+              : "Rates update automatically when online"}
+          </p>
+        </>
       )}
     </div>
   );

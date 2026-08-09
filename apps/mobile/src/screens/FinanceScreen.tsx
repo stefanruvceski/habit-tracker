@@ -19,6 +19,7 @@ import {
   financeActions,
   useFinanceHydrated,
   useFinanceState,
+  useFxRefreshing,
 } from "../lib/financeStore";
 import { C, pct } from "../lib/theme";
 import { Card, ProgressRing } from "../components/ui";
@@ -573,31 +574,72 @@ function Settings() {
       {fxCodes.length > 0 && (
         <>
           <View style={styles.divider} />
-          <Text style={[styles.fieldLabel, { marginBottom: 6 }]}>
-            FX RATES (1 → {state.baseCurrency})
-          </Text>
-          {fxCodes.map((code) => {
-            const rate = state.fxRates.find((r) => r.code === code)?.rate ?? 1;
-            return (
-              <View key={code} style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                <Text style={{ color: C.text, fontWeight: "600", width: 48 }}>{code}</Text>
-                <TextInput
-                  defaultValue={String(rate)}
-                  onEndEditing={(e) =>
-                    financeActions.setFxRate(
-                      code,
-                      parseFloat(e.nativeEvent.text.replace(",", ".")) || 1,
-                    )
-                  }
-                  keyboardType="decimal-pad"
-                  style={[styles.input, { flex: 1 }]}
-                />
-              </View>
-            );
-          })}
+          <FxSection codes={fxCodes} />
         </>
       )}
     </Card>
+  );
+}
+
+function FxSection({ codes }: { codes: string[] }) {
+  const state = useFinanceState();
+  const refreshing = useFxRefreshing();
+  const lastUpdated = state.fxRates
+    .filter((r) => codes.includes(r.code) && r.updatedAt)
+    .map((r) => r.updatedAt as string)
+    .sort()
+    .pop();
+
+  return (
+    <>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <Text style={styles.fieldLabel}>FX RATES (1 → {state.baseCurrency})</Text>
+        <Pressable
+          onPress={() => financeActions.refreshFxRates(true)}
+          disabled={refreshing}
+          style={[styles.smallBtn, { paddingVertical: 6, opacity: refreshing ? 0.5 : 1 }]}
+        >
+          <Text style={{ color: C.text, fontSize: 12, fontWeight: "600" }}>
+            {refreshing ? "Updating…" : "↻ Update"}
+          </Text>
+        </Pressable>
+      </View>
+      {codes.map((code) => {
+        const entry = state.fxRates.find((r) => r.code === code);
+        const rate = entry?.rate ?? 1;
+        return (
+          <View
+            key={`${code}-${entry?.updatedAt ?? ""}`}
+            style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }}
+          >
+            <Text style={{ color: C.text, fontWeight: "600", width: 48 }}>{code}</Text>
+            <TextInput
+              defaultValue={String(Number(rate.toFixed(4)))}
+              onEndEditing={(e) =>
+                financeActions.setFxRate(
+                  code,
+                  parseFloat(e.nativeEvent.text.replace(",", ".")) || 1,
+                )
+              }
+              keyboardType="decimal-pad"
+              style={[styles.input, { flex: 1 }]}
+            />
+            {entry?.manual ? (
+              <Pressable onPress={() => financeActions.resetFxRate(code)} hitSlop={6}>
+                <Text style={{ color: C.accent2, fontSize: 11 }}>auto</Text>
+              </Pressable>
+            ) : (
+              <Text style={{ color: C.faint, fontSize: 11, width: 34, textAlign: "right" }}>auto</Text>
+            )}
+          </View>
+        );
+      })}
+      <Text style={{ color: C.faint, fontSize: 10, marginTop: 4 }}>
+        {lastUpdated
+          ? `Auto-updated ${new Date(lastUpdated).toLocaleDateString()}`
+          : "Rates update automatically when online"}
+      </Text>
+    </>
   );
 }
 

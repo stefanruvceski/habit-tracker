@@ -8,6 +8,8 @@ import {
   LevelTier,
   Transaction,
   emptyFinanceState,
+  fetchFxRates,
+  fxRateStale,
   newFinanceId,
 } from "@habit/core";
 
@@ -89,6 +91,59 @@ async function load() {
   }
   hydrated = true;
   emit();
+  void refreshFx(false);
+}
+
+// ---- Live FX rates --------------------------------------------------------
+
+let fxRefreshing = false;
+
+function foreignCodes(s: FinanceState): string[] {
+  return Array.from(
+    new Set(s.sources.map((x) => x.currency).filter((c) => c && c !== s.baseCurrency)),
+  );
+}
+
+/**
+ * Fetch live FX rates. `force` refreshes everything (including manual
+ * overrides); otherwise only stale, non-manual rates. Failures are swallowed
+ * so the app keeps working offline with the last known rates.
+ */
+async function refreshFx(force: boolean) {
+  if (fxRefreshing) return;
+  const codes = foreignCodes(state);
+  const toFetch = force
+    ? codes
+    : codes.filter((c) => {
+        const r = state.fxRates.find((x) => x.code === c);
+        return !(r && r.manual) && fxRateStale(r);
+      });
+  if (toFetch.length === 0) return;
+
+  fxRefreshing = true;
+  emit();
+  try {
+    const res = await fetchFxRates(state.baseCurrency, toFetch);
+    setState((s) => {
+      const map = new Map(s.fxRates.map((r) => [r.code, r]));
+      for (const q of res.rates) {
+        const prev = map.get(q.code);
+        if (!force && prev?.manual) continue;
+        map.set(q.code, {
+          code: q.code,
+          rate: q.rate,
+          updatedAt: res.fetchedAt,
+          manual: false,
+        });
+      }
+      return { ...s, fxRates: Array.from(map.values()) };
+    });
+  } catch {
+    // keep existing rates
+  } finally {
+    fxRefreshing = false;
+    emit();
+  }
 }
 
 function setState(updater: (s: FinanceState) => FinanceState) {
@@ -113,6 +168,10 @@ export function useFinanceState(): FinanceState {
 
 export function useFinanceHydrated(): boolean {
   return useSyncExternalStore(subscribe, () => hydrated);
+}
+
+export function useFxRefreshing(): boolean {
+  return useSyncExternalStore(subscribe, () => fxRefreshing);
 }
 
 // ---- Mutations ------------------------------------------------------------
@@ -185,8 +244,26 @@ export const financeActions = {
   setFxRate(code: string, rate: number) {
     setState((s) => {
       const rest = s.fxRates.filter((r) => r.code !== code);
-      return { ...s, fxRates: [...rest, { code, rate }] };
+      return {
+        ...s,
+        fxRates: [
+          ...rest,
+          { code, rate, updatedAt: new Date().toISOString(), manual: true },
+        ],
+      };
     });
+  },
+
+  resetFxRate(code: string) {
+    setState((s) => ({
+      ...s,
+      fxRates: s.fxRates.filter((r) => r.code !== code),
+    }));
+    void refreshFx(false);
+  },
+
+  refreshFxRates(force = false) {
+    void refreshFx(force);
   },
 
   setLevels(levels: LevelTier[]) {

@@ -41,11 +41,15 @@ export interface Transaction {
   createdAt: string; // ISO
 }
 
-/** Manual FX rate: how many base-currency units one unit of `code` is worth. */
+/** FX rate: how many base-currency units one unit of `code` is worth. */
 export interface FxRate {
   code: CurrencyCode;
   /** Units of base currency per 1 unit of `code`. Base currency = 1. */
   rate: number;
+  /** ISO timestamp of the last update (set when fetched or edited). */
+  updatedAt?: string;
+  /** True when the user typed the rate by hand (skipped by auto-refresh). */
+  manual?: boolean;
 }
 
 /** Whether the yearly goal is something to reach or a ceiling not to exceed. */
@@ -474,4 +478,115 @@ export function financeYears(state: FinanceState): number[] {
   years.add(new Date().getFullYear());
   for (const tx of state.transactions) years.add(txYear(tx));
   return Array.from(years).sort((a, b) => b - a);
+}
+
+// ---------------------------------------------------------------------------
+// Live FX rates
+// ---------------------------------------------------------------------------
+
+/** A single fetched quote: `rate` base-currency units per 1 unit of `code`. */
+export interface FxQuote {
+  code: CurrencyCode;
+  rate: number;
+}
+
+export interface FxFetchResult {
+  base: CurrencyCode;
+  /** Provider's rate date (YYYY-MM-DD), or "" when unknown. */
+  date: string;
+  /** When we fetched it (ISO). */
+  fetchedAt: string;
+  rates: FxQuote[];
+}
+
+/**
+ * Public endpoints for the free, keyless, CORS-enabled currency-api
+ * (@fawazahmed0/currency-api). Tried in order; the CDN is primary and the
+ * pages.dev host is a fallback. `{base}` is the lowercased base currency.
+ */
+export function fxEndpoints(base: CurrencyCode): string[] {
+  const b = base.toLowerCase();
+  return [
+    `https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/${b}.json`,
+    `https://latest.currency-api.pages.dev/v1/currencies/${b}.json`,
+  ];
+}
+
+/**
+ * Parse a currency-api response into base-per-code quotes for the requested
+ * codes. The provider returns `{ [base]: { [code]: codePerBase } }`, so we
+ * invert to get base-per-code. Pure and unit-testable (no network).
+ */
+export function parseFxResponse(
+  base: CurrencyCode,
+  codes: CurrencyCode[],
+  data: unknown,
+): FxQuote[] {
+  const obj = (data ?? {}) as Record<string, unknown>;
+  const table = obj[base.toLowerCase()] as Record<string, number> | undefined;
+  if (!table || typeof table !== "object") return [];
+  const out: FxQuote[] = [];
+  for (const code of codes) {
+    if (code === base) continue;
+    const codePerBase = table[code.toLowerCase()];
+    if (typeof codePerBase === "number" && codePerBase > 0) {
+      out.push({ code, rate: 1 / codePerBase });
+    }
+  }
+  return out;
+}
+
+/** Minimal structural type so core needs no DOM lib for `fetch`. */
+type FetchLike = (
+  url: string,
+  init?: { signal?: unknown },
+) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
+
+/**
+ * Fetch live base-per-code FX rates for the given currencies. Runs on the
+ * user's device (browser / React Native), where `fetch` is a global; a custom
+ * implementation can be injected for tests. Tries each endpoint until one
+ * yields the base table. Throws if all endpoints fail.
+ */
+export async function fetchFxRates(
+  base: CurrencyCode,
+  codes: CurrencyCode[],
+  opts: { signal?: unknown; fetchImpl?: FetchLike } = {},
+): Promise<FxFetchResult> {
+  const wanted = Array.from(new Set(codes.filter((c) => c && c !== base)));
+  if (wanted.length === 0) {
+    return { base, date: "", fetchedAt: new Date().toISOString(), rates: [] };
+  }
+  const f =
+    opts.fetchImpl ??
+    (globalThis as unknown as { fetch?: FetchLike }).fetch;
+  if (!f) throw new Error("No fetch implementation available");
+
+  let lastErr: unknown = null;
+  for (const url of fxEndpoints(base)) {
+    try {
+      const res = await f(url, { signal: opts.signal });
+      if (!res.ok) {
+        lastErr = new Error(`HTTP ${res.status}`);
+        continue;
+      }
+      const data = (await res.json()) as Record<string, unknown>;
+      const rates = parseFxResponse(base, wanted, data);
+      if (rates.length > 0) {
+        const date = typeof data.date === "string" ? data.date : "";
+        return { base, date, fetchedAt: new Date().toISOString(), rates };
+      }
+      lastErr = new Error("No matching rates in response");
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr ?? new Error("FX fetch failed");
+}
+
+/** True when a rate is missing or older than `maxAgeHours` (default 12h). */
+export function fxRateStale(rate: FxRate | undefined, maxAgeHours = 12): boolean {
+  if (!rate || !rate.updatedAt) return true;
+  const age = Date.now() - new Date(rate.updatedAt).getTime();
+  return !(age >= 0) || age > maxAgeHours * 3600_000;
 }
