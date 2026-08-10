@@ -8,6 +8,8 @@ import {
   weekdayOf,
 } from "./date";
 import type { AppState, Entries, Habit, Mental } from "./types";
+import type { Todo } from "./todos";
+import { todoCounts } from "./todos";
 
 /** Whether a habit tracks a numeric amount rather than a simple checkbox. */
 export function isMeasurable(habit: Habit): boolean {
@@ -108,6 +110,34 @@ export function dayProgress(
     if (isScheduled(h, dateKey) && isDoneOn(h, entries, dateKey)) done++;
   }
   return done / scheduled;
+}
+
+/**
+ * Combined daily agenda counts: scheduled habits + to-dos dated that day, and
+ * how many of each are done. This is the "did I close the day" number.
+ */
+export function combinedDayCounts(
+  entries: Entries,
+  habits: Habit[],
+  todos: Todo[],
+  dateKey: string,
+): { done: number; total: number; progress: number } {
+  const habitTotal = scheduledCountOnDate(habits, dateKey);
+  const habitDone = doneCountOnDate(entries, habits, dateKey);
+  const tc = todoCounts(todos, dateKey);
+  const total = habitTotal + tc.total;
+  const done = habitDone + tc.done;
+  return { done, total, progress: total ? done / total : 0 };
+}
+
+/** Combined daily progress (habits + to-dos) as a 0..1 fraction. */
+export function combinedDayProgress(
+  entries: Entries,
+  habits: Habit[],
+  todos: Todo[],
+  dateKey: string,
+): number {
+  return combinedDayCounts(entries, habits, todos, dateKey).progress;
 }
 
 export interface MonthStats {

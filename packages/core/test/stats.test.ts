@@ -8,6 +8,8 @@ import {
   doneCountOnDate,
   scheduledCountOnDate,
   dayProgress,
+  combinedDayCounts,
+  combinedDayProgress,
   monthStats,
   habitMonthRatio,
   currentStreak,
@@ -20,6 +22,7 @@ import {
   isDoneOn,
   periodAmount,
 } from "../src/stats.ts";
+import type { Todo } from "../src/todos.ts";
 import { addDays, todayKey } from "../src/date.ts";
 
 function habit(over: Partial<Habit> = {}): Habit {
@@ -38,7 +41,7 @@ function habit(over: Partial<Habit> = {}): Habit {
 }
 
 function appState(over: Partial<AppState> = {}): AppState {
-  return { version: 1, habits: [], entries: {}, mental: {}, ...over };
+  return { version: 2, habits: [], entries: {}, mental: {}, todos: [], ...over };
 }
 
 test("isScheduled: daily is always on (after creation)", () => {
@@ -83,6 +86,26 @@ test("dayProgress is done/scheduled, 0 when nothing scheduled", () => {
   assert.equal(dayProgress(entries, [a, b], "2026-08-10"), 0.5);
   const future = habit({ id: "c", createdAt: "2099-01-01T00:00:00Z" });
   assert.equal(dayProgress({}, [future], "2026-08-10"), 0); // none scheduled
+});
+
+test("combinedDayCounts merges habits and to-dos for a day", () => {
+  const a = habit({ id: "a" });
+  const b = habit({ id: "b" });
+  const entries = { "2026-08-10": { a: true } }; // 1 of 2 habits done
+  const todos: Todo[] = [
+    { id: "t1", title: "x", date: "2026-08-10", done: true, order: 0, createdAt: "" },
+    { id: "t2", title: "y", date: "2026-08-10", done: false, order: 1, createdAt: "" },
+    { id: "t3", title: "z", date: "2026-08-11", done: true, order: 0, createdAt: "" },
+  ];
+  const c = combinedDayCounts(entries, [a, b], todos, "2026-08-10");
+  assert.equal(c.total, 4); // 2 habits + 2 todos that day
+  assert.equal(c.done, 2); // 1 habit + 1 todo
+  assert.equal(c.progress, 0.5);
+  assert.equal(combinedDayProgress(entries, [a, b], todos, "2026-08-10"), 0.5);
+});
+
+test("combinedDayProgress is 0 when nothing is scheduled or listed", () => {
+  assert.equal(combinedDayProgress({}, [], [], "2026-08-10"), 0);
 });
 
 test("monthStats aggregates a month", () => {

@@ -5,7 +5,9 @@ import {
   CURRENT_VERSION,
   Habit,
   MentalDay,
+  Todo,
   newId,
+  newTodoId,
   seedHabits,
 } from "@habit/core";
 
@@ -17,6 +19,7 @@ function emptyState(): AppState {
     habits: seedHabits(),
     entries: {},
     mental: {},
+    todos: [],
   };
 }
 
@@ -50,6 +53,7 @@ async function load() {
           habits: parsed.habits,
           entries: parsed.entries ?? {},
           mental: parsed.mental ?? {},
+          todos: parsed.todos ?? [],
         };
       }
     } else {
@@ -167,12 +171,83 @@ export const actions = {
     });
   },
 
+  // ---- To-dos --------------------------------------------------------------
+
+  addTodo(title: string, dateKey: string, priority = false) {
+    const clean = title.trim();
+    if (!clean) return;
+    setState((s) => {
+      const order = s.todos
+        .filter((t) => t.date === dateKey)
+        .reduce((m, t) => Math.max(m, t.order + 1), 0);
+      const todo: Todo = {
+        id: newTodoId(),
+        title: clean,
+        date: dateKey,
+        done: false,
+        priority,
+        order,
+        createdAt: new Date().toISOString(),
+      };
+      return { ...s, todos: [...s.todos, todo] };
+    });
+  },
+
+  toggleTodo(id: string) {
+    setState((s) => ({
+      ...s,
+      todos: s.todos.map((t) =>
+        t.id === id
+          ? { ...t, done: !t.done, doneAt: !t.done ? new Date().toISOString() : undefined }
+          : t,
+      ),
+    }));
+  },
+
+  updateTodo(id: string, patch: Partial<Todo>) {
+    setState((s) => ({
+      ...s,
+      todos: s.todos.map((t) => (t.id === id ? { ...t, ...patch } : t)),
+    }));
+  },
+
+  setTodoPriority(id: string, priority: boolean) {
+    setState((s) => ({
+      ...s,
+      todos: s.todos.map((t) => (t.id === id ? { ...t, priority } : t)),
+    }));
+  },
+
+  deleteTodo(id: string) {
+    setState((s) => ({ ...s, todos: s.todos.filter((t) => t.id !== id) }));
+  },
+
+  moveTodo(id: string, dateKey: string) {
+    setState((s) => ({
+      ...s,
+      todos: s.todos.map((t) => (t.id === id ? { ...t, date: dateKey } : t)),
+    }));
+  },
+
+  reorderTodos(dateKey: string, orderedIds: string[]) {
+    setState((s) => {
+      const pos = new Map(orderedIds.map((id, i) => [id, i]));
+      return {
+        ...s,
+        todos: s.todos.map((t) =>
+          t.date === dateKey ? { ...t, order: pos.get(t.id) ?? t.order } : t,
+        ),
+      };
+    });
+  },
+
   importState(next: AppState) {
     setState(() => ({
       version: CURRENT_VERSION,
       habits: next.habits ?? [],
       entries: next.entries ?? {},
       mental: next.mental ?? {},
+      todos: next.todos ?? [],
     }));
   },
 
