@@ -13,11 +13,17 @@ breaks in production until you're ready.
    password (you won't need it for this app), and a region close to you.
 2. Wait for it to finish provisioning.
 
-## 2. Get your keys
-Dashboard → **Project Settings → API**. Copy:
-- **Project URL** (e.g. `https://abcd1234.supabase.co`)
-- **anon public** key (the long `eyJ…` string). This key is safe to ship in a
-  client app — Row Level Security protects the data.
+## 2. Get your keys — on **supabase.com** (NOT Vercel)
+> ⚠️ These live in the **Supabase** dashboard. The "API" section is **not** in
+> Vercel — on Vercel you only *paste* these values as env vars (step 5).
+
+Supabase dashboard → your project → **Project Settings → API**. Copy:
+- **Project URL** (e.g. `https://abcd1234.supabase.co`). If you only see the
+  Project ID, the URL is `https://<PROJECT_ID>.supabase.co`.
+- The **publishable** key (`sb_publishable_…`) under **API Keys** — the new
+  client key that **replaces the legacy "anon"** key. Both are client-safe (RLS
+  protects the data). Never expose the **secret** key (`sb_secret_…` /
+  `service_role`).
 
 ## 3. Turn on email code (OTP) login
 1. **Authentication → Providers → Email**: make sure it's **enabled** and
@@ -49,20 +55,24 @@ rows). Auth itself needs no tables — Supabase manages users for you.
 
 ## 5. Set the environment variables
 
-**Web** — create `apps/web/.env.local` (for local dev) and add the same two
-vars in **Vercel → Project → Settings → Environment Variables**:
+**Web** — create `apps/web/.env.local` (local dev) and add the same vars on
+**Vercel → Project → Settings → Environments → Production (+ Preview +
+Development) → Environment Variables**. The value is the **publishable** key:
 
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://YOUR-PROJECT.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...your-anon-key...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_...your-publishable-key...
 ```
 
 **Mobile** — create `apps/mobile/.env` (and set the same in EAS build env):
 
 ```
 EXPO_PUBLIC_SUPABASE_URL=https://YOUR-PROJECT.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJ...your-anon-key...
+EXPO_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_...your-publishable-key...
 ```
+
+(The var keeps the `…_ANON_KEY` name for continuity but the value is the
+publishable key; the app also accepts `…_SUPABASE_PUBLISHABLE_KEY`.)
 
 (`.env*` files are git‑ignored; only the `*.example` files are committed.)
 

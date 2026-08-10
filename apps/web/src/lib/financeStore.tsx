@@ -354,6 +354,16 @@ export const financeActions = {
 
 // ---- Hooks ----------------------------------------------------------------
 
+/** Subscribe to any finance-state change (returns an unsubscribe fn). */
+export function subscribeFinance(cb: () => void): () => void {
+  return subscribe(cb);
+}
+
+/** Current FinanceState snapshot (non-hook). */
+export function financeSnapshot(): FinanceState {
+  return state;
+}
+
 export function useFinanceState(): FinanceState {
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 }

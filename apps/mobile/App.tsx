@@ -10,6 +10,7 @@ import { HabitsScreen } from "./src/screens/HabitsScreen";
 import { FinanceScreen } from "./src/screens/FinanceScreen";
 import { SignInScreen } from "./src/screens/SignInScreen";
 import { AuthProvider, useAuth } from "./src/lib/auth";
+import { CloudSync } from "./src/components/CloudSync";
 import {
   TodayIcon,
   MonthIcon,
@@ -48,7 +49,12 @@ function Gate() {
     );
   }
   if (configured && !session) return <SignInScreen />;
-  return <Shell />;
+  return (
+    <>
+      {session && <CloudSync userId={session.user.id} />}
+      <Shell />
+    </>
+  );
 }
 
 function Shell() {

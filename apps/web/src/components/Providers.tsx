@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { AuthProvider, useAuth } from "../lib/auth";
 import { SignIn } from "./SignIn";
+import { CloudSync } from "./CloudSync";
 
 /**
  * Wraps the app in the auth provider. When Supabase is configured, it gates the
@@ -28,5 +29,10 @@ function AuthGate({ children }: { children: ReactNode }) {
     );
   }
   if (!session) return <SignIn />;
-  return <>{children}</>;
+  return (
+    <>
+      <CloudSync userId={session.user.id} />
+      {children}
+    </>
+  );
 }
