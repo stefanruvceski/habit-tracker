@@ -1,4 +1,4 @@
-import { Habit } from "./types";
+import type { Habit } from "./types";
 
 /** Palette used for new habits and pickers. Tuned for the dark theme. */
 export const PALETTE = [

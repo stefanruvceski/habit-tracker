@@ -7,7 +7,7 @@ import {
   todayKey,
   weekdayOf,
 } from "./date";
-import { AppState, Entries, Habit, Mental } from "./types";
+import type { AppState, Entries, Habit, Mental } from "./types";
 
 /** Whether a habit is "scheduled" (expected) on a given date. */
 export function isScheduled(habit: Habit, dateKey: string): boolean {
