@@ -13,7 +13,9 @@ import {
   dayProgress,
   doneCountOnDate,
   habitMonthRatio,
-  isDone,
+  isDoneOn,
+  isMeasurable,
+  amountOn,
   isScheduled,
   monthStats,
   scheduledCountOnDate,
@@ -136,27 +138,45 @@ export function MonthScreen() {
                   <View key={h.id} style={{ flexDirection: "row", height: ROW_H, alignItems: "center" }}>
                     {days.map((day) => {
                       const key = makeKey(year, month, day);
-                      const done = isDone(state.entries, h.id, key);
+                      const done = isDoneOn(h, state.entries, key);
                       const scheduled = isScheduled(h, key);
                       const future = key > today;
+                      const measurable = isMeasurable(h);
+                      const amount = measurable ? amountOn(state.entries, h.id, key) : 0;
+                      const press = () => {
+                        if (future && !done) return;
+                        if (measurable) {
+                          actions.setAmount(h.id, key, done ? 0 : h.target ?? 1);
+                        } else {
+                          actions.toggle(h.id, key);
+                        }
+                      };
                       return (
                         <Pressable
                           key={day}
-                          onPress={() => { if (!(future && !done)) actions.toggle(h.id, key); }}
+                          onPress={press}
                           style={{ width: CELL, alignItems: "center", justifyContent: "center" }}
                         >
                           <View
                             style={{
                               width: 26, height: 26, borderRadius: 7, borderWidth: 2,
                               borderColor: h.color, backgroundColor: done ? h.color : "transparent",
-                              opacity: future && !done ? 0.2 : !scheduled && !done ? 0.3 : 1,
+                              opacity: future && !done && amount === 0 ? 0.2 : !scheduled && !done && amount === 0 ? 0.3 : 1,
                               alignItems: "center", justifyContent: "center",
                             }}
                           >
-                            {done && (
-                              <Svg width={13} height={13} viewBox="0 0 24 24">
-                                <Path d="M5 13l4 4L19 7" stroke={C.bg} strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                              </Svg>
+                            {measurable ? (
+                              amount > 0 && (
+                                <Text style={{ color: done ? C.bg : h.color, fontSize: 10, fontWeight: "700" }}>
+                                  {amount}
+                                </Text>
+                              )
+                            ) : (
+                              done && (
+                                <Svg width={13} height={13} viewBox="0 0 24 24">
+                                  <Path d="M5 13l4 4L19 7" stroke={C.bg} strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                                </Svg>
+                              )
                             )}
                           </View>
                         </Pressable>

@@ -1,5 +1,5 @@
 import { beforeEach, describe, test, expect, vi } from "vitest";
-import { act, render, fireEvent, within } from "@testing-library/react";
+import { act, render, fireEvent } from "@testing-library/react";
 import type { FinanceState } from "@habit/core";
 import { actions } from "../lib/store";
 import { financeActions } from "../lib/financeStore";
@@ -43,6 +43,25 @@ describe("Today page", () => {
     expect(container.textContent!.length).toBeGreaterThan(0);
     const buttons = container.querySelectorAll("button");
     if (buttons.length) fireEvent.click(buttons[0]);
+  });
+
+  test("renders a measurable habit with +/- controls", () => {
+    act(() =>
+      actions.addHabit({
+        name: "Water",
+        emoji: "💧",
+        color: "#60a5fa",
+        type: "build",
+        schedule: { type: "daily" },
+        goalType: "measurable",
+        target: 8,
+        unit: "glasses",
+      }),
+    );
+    const { getByText, getAllByLabelText } = render(<TodayPage />);
+    expect(getByText("Water")).toBeTruthy();
+    fireEvent.click(getAllByLabelText("Increase")[0]);
+    fireEvent.click(getAllByLabelText("Decrease")[0]);
   });
 });
 

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { View, Text, Pressable, ScrollView, StyleSheet } from "react-native";
-import { Habit, bestStreak, currentStreak, isDone, isScheduled } from "@habit/core";
+import { Habit, bestStreak, currentStreak, isDoneOn, isScheduled } from "@habit/core";
 import { actions, useAppState, useHabits } from "../lib/store";
 import { C } from "../lib/theme";
 import { Card } from "../components/ui";
@@ -64,7 +64,7 @@ export function HabitsScreen() {
 
       {habits.map((h, i) => {
         const getState = (key: string): CellState =>
-          isDone(state.entries, h.id, key) ? "done" : isScheduled(h, key) ? "missed" : "off";
+          isDoneOn(h, state.entries, key) ? "done" : isScheduled(h, key) ? "missed" : "off";
         const scheduleLabel =
           h.schedule.type === "daily" ? "Daily"
             : h.schedule.type === "weekly" ? `${h.schedule.times}×/week`
