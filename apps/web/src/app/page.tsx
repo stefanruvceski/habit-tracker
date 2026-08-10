@@ -5,10 +5,12 @@ import { useState } from "react";
 import { actions, useAppState, useHabits, useHydrated } from "../lib/store";
 import {
   currentStreak,
-  dayProgress,
+  combinedDayCounts,
+  combinedDayProgress,
   isDone,
   isScheduled,
-  scheduledCountOnDate,
+  todosForDate,
+  overdueTodos,
 } from "@habit/core";
 import {
   MONTH_NAMES,
@@ -18,6 +20,8 @@ import {
   todayKey,
 } from "@habit/core";
 import { HabitRow } from "../components/HabitRow";
+import { TodoRow } from "../components/TodoRow";
+import { WeekStrip } from "../components/WeekStrip";
 import { Card, ProgressRing } from "../components/ui";
 
 export default function TodayPage() {
@@ -25,16 +29,22 @@ export default function TodayPage() {
   const state = useAppState();
   const habits = useHabits();
   const [dateKey, setDateKey] = useState(todayKey());
+  const [newTask, setNewTask] = useState("");
 
   if (!hydrated) return <LoadingScreen />;
 
   const d = fromKey(dateKey);
   const isToday = dateKey === todayKey();
   const scheduled = habits.filter((h) => isScheduled(h, dateKey));
-  const progress = dayProgress(state.entries, habits, dateKey);
-  const doneCount = scheduled.filter((h) => isDone(state.entries, h.id, dateKey)).length;
-  const total = scheduledCountOnDate(habits, dateKey);
+  const todos = todosForDate(state.todos, dateKey);
+  const overdue = isToday ? overdueTodos(state.todos, todayKey()) : [];
+  const counts = combinedDayCounts(state.entries, habits, state.todos, dateKey);
   const mental = state.mental[dateKey] ?? { mood: 0, motivation: 0 };
+
+  function addTask() {
+    actions.addTodo(newTask, dateKey);
+    setNewTask("");
+  }
 
   return (
     <div className="space-y-4">
@@ -56,45 +66,131 @@ export default function TodayPage() {
           </div>
         </div>
         <button
-          onClick={() => !isToday && setDateKey(addDays(dateKey, 1))}
-          disabled={isToday}
-          className="w-10 h-10 grid place-items-center rounded-xl bg-bg-elev border border-border text-lg disabled:opacity-30"
+          onClick={() => setDateKey(addDays(dateKey, 1))}
+          className="w-10 h-10 grid place-items-center rounded-xl bg-bg-elev border border-border text-lg"
           aria-label="Next day"
         >
           ›
         </button>
       </div>
 
-      {/* Progress summary */}
+      {/* Week strip — tap a day to plan ahead */}
+      <WeekStrip
+        dateKey={dateKey}
+        onSelect={setDateKey}
+        progressFor={(k) => combinedDayProgress(state.entries, habits, state.todos, k)}
+      />
+
+      {/* Progress summary (habits + to-dos) */}
       <Card className="flex items-center gap-4">
-        <ProgressRing value={progress} size={76} stroke={8} />
+        <ProgressRing value={counts.progress} size={76} stroke={8} />
         <div>
           <div className="text-2xl font-bold">
-            {doneCount}
-            <span className="text-text-faint text-lg font-medium"> / {total}</span>
+            {counts.done}
+            <span className="text-text-faint text-lg font-medium"> / {counts.total}</span>
           </div>
           <div className="text-sm text-text-dim">
-            habits done {isToday ? "today" : "this day"}
+            done {isToday ? "today" : "this day"}
           </div>
+        </div>
+      </Card>
+
+      {/* Overdue tasks (today only) */}
+      {overdue.length > 0 && (
+        <Card>
+          <h2 className="text-sm font-semibold text-amber-300 mb-2">
+            Overdue · {overdue.length}
+          </h2>
+          <div className="space-y-1.5">
+            {overdue.map((t) => (
+              <div
+                key={t.id}
+                className="flex items-center gap-2 text-sm rounded-lg bg-bg-elev-2 px-3 py-2"
+              >
+                <span className="flex-1 truncate">{t.title}</span>
+                <span className="text-[11px] text-text-faint">
+                  {MONTH_NAMES[fromKey(t.date).getMonth()].slice(0, 3)} {fromKey(t.date).getDate()}
+                </span>
+                <button
+                  onClick={() => actions.moveTodo(t.id, todayKey())}
+                  className="text-xs font-medium text-accent whitespace-nowrap"
+                >
+                  → Today
+                </button>
+                <button
+                  onClick={() => actions.toggleTodo(t.id)}
+                  className="text-xs text-text-dim"
+                  aria-label="Complete"
+                >
+                  ✓
+                </button>
+                <button
+                  onClick={() => actions.deleteTodo(t.id)}
+                  className="text-text-faint hover:text-red-400 text-lg leading-none"
+                  aria-label="Delete"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* To-dos for the day */}
+      <Card>
+        <h2 className="text-sm font-semibold text-text-dim mb-3">
+          To-dos {isToday ? "today" : "this day"}
+        </h2>
+        <div className="space-y-2">
+          {todos.map((t) => (
+            <TodoRow
+              key={t.id}
+              todo={t}
+              onToggle={() => actions.toggleTodo(t.id)}
+              onStar={() => actions.setTodoPriority(t.id, !t.priority)}
+              onDelete={() => actions.deleteTodo(t.id)}
+            />
+          ))}
+        </div>
+        <div className="flex gap-2 mt-3">
+          <input
+            value={newTask}
+            onChange={(e) => setNewTask(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") addTask();
+            }}
+            placeholder={`Add a task for ${isToday ? "today" : MONTH_NAMES[d.getMonth()] + " " + d.getDate()}…`}
+            className="flex-1 bg-bg-elev-2 border border-border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent/50"
+          />
+          <button
+            onClick={addTask}
+            disabled={!newTask.trim()}
+            className="rounded-xl bg-accent text-bg font-semibold px-4 text-sm disabled:opacity-40"
+          >
+            Add
+          </button>
         </div>
       </Card>
 
       {/* Habit list */}
       {scheduled.length === 0 ? (
-        <Card className="text-center py-8">
-          <div className="text-3xl mb-2">🌱</div>
-          <p className="text-text-dim mb-4">
-            {habits.length === 0
-              ? "No habits yet. Create your first one."
-              : "No habits scheduled for this day."}
+        habits.length === 0 ? (
+          <Card className="text-center py-6">
+            <div className="text-2xl mb-2">🌱</div>
+            <p className="text-text-dim mb-4 text-sm">No habits yet.</p>
+            <Link
+              href="/habits"
+              className="inline-block rounded-xl bg-accent text-bg font-semibold px-5 py-2.5 text-sm"
+            >
+              Add habits
+            </Link>
+          </Card>
+        ) : (
+          <p className="text-center text-sm text-text-faint py-2">
+            No habits scheduled for this day.
           </p>
-          <Link
-            href="/habits"
-            className="inline-block rounded-xl bg-accent text-bg font-semibold px-5 py-2.5 text-sm"
-          >
-            Manage habits
-          </Link>
-        </Card>
+        )
       ) : (
         <div className="space-y-2">
           {scheduled.map((h) => (

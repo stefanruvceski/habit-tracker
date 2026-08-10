@@ -1,5 +1,7 @@
 // Core domain types for the habit tracker.
 
+import type { Todo } from "./todos";
+
 export type HabitType = "build" | "quit";
 
 /**
@@ -45,6 +47,8 @@ export interface AppState {
   habits: Habit[];
   entries: Entries;
   mental: Mental;
+  /** One-off dated to-dos, shown alongside habits in the daily agenda. */
+  todos: Todo[];
 }
 
-export const CURRENT_VERSION = 1;
+export const CURRENT_VERSION = 2;

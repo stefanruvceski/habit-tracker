@@ -44,6 +44,25 @@ describe("Today page", () => {
     const buttons = container.querySelectorAll("button");
     if (buttons.length) fireEvent.click(buttons[0]);
   });
+
+  test("adds a to-do and shows it in the day's list", () => {
+    const { getByPlaceholderText, getByText, getByLabelText } = render(<TodayPage />);
+    const input = getByPlaceholderText(/Add a task for/);
+    fireEvent.change(input, { target: { value: "Buy milk" } });
+    fireEvent.click(getByText("Add"));
+    expect(getByText("Buy milk")).toBeTruthy();
+    // star it, then complete it
+    fireEvent.click(getByLabelText("Star"));
+    fireEvent.click(getByLabelText("Mark done"));
+  });
+
+  test("shows the week strip (7 day buttons)", () => {
+    const { container } = render(<TodayPage />);
+    // 7 weekday cells in the strip
+    const strip = container.querySelector(".grid-cols-7");
+    expect(strip).toBeTruthy();
+    expect(strip!.querySelectorAll("button").length).toBe(7);
+  });
 });
 
 describe("Month page", () => {

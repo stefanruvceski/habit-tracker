@@ -70,12 +70,35 @@ describe("mobile habit store", () => {
     expect((await persisted()).mental["2026-08-10"]).toEqual({ mood: 80, motivation: 60 });
   });
 
+  test("todo lifecycle persists (add, toggle, star, move, delete)", async () => {
+    actions.addTodo("Call bank", "2026-08-10");
+    actions.addTodo("   ", "2026-08-10"); // blank ignored
+    let p = await persisted();
+    expect(p.todos.length).toBe(1);
+    const id = p.todos[0].id;
+
+    actions.toggleTodo(id);
+    p = await persisted();
+    expect(p.todos[0].done).toBe(true);
+
+    actions.setTodoPriority(id, true);
+    actions.moveTodo(id, "2026-08-11");
+    p = await persisted();
+    expect(p.todos[0].priority).toBe(true);
+    expect(p.todos[0].date).toBe("2026-08-11");
+
+    actions.deleteTodo(id);
+    p = await persisted();
+    expect(p.todos.length).toBe(0);
+  });
+
   test("importState replaces state", async () => {
     actions.importState({
-      version: 1,
+      version: 2,
       habits: [],
       entries: { "2026-01-01": { x: true } },
       mental: {},
+      todos: [],
     });
     const p = await persisted();
     expect(p.habits.length).toBe(0);

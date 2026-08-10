@@ -89,16 +89,54 @@ describe("habit store", () => {
     const { result } = renderHook(() => useAppState());
     act(() =>
       actions.importState({
-        version: 1,
+        version: 2,
         habits: [],
         entries: { "2026-01-01": { x: true } },
         mental: {},
+        todos: [],
       }),
     );
     expect(result.current.habits.length).toBe(0);
     expect(result.current.entries["2026-01-01"].x).toBe(true);
     const json = JSON.parse(exportState());
     expect(json.entries["2026-01-01"].x).toBe(true);
+  });
+
+  test("todo lifecycle: add, toggle, star, move, delete", () => {
+    const { result } = renderHook(() => useAppState());
+    act(() => actions.addTodo("Call bank", "2026-08-10"));
+    act(() => actions.addTodo("  ", "2026-08-10")); // blank ignored
+    expect(result.current.todos.length).toBe(1);
+    const id = result.current.todos[0].id;
+    expect(result.current.todos[0].title).toBe("Call bank");
+    expect(result.current.todos[0].done).toBe(false);
+
+    act(() => actions.toggleTodo(id));
+    expect(result.current.todos[0].done).toBe(true);
+    expect(result.current.todos[0].doneAt).toBeTruthy();
+
+    act(() => actions.setTodoPriority(id, true));
+    expect(result.current.todos[0].priority).toBe(true);
+
+    act(() => actions.updateTodo(id, { title: "Call the bank" }));
+    expect(result.current.todos[0].title).toBe("Call the bank");
+
+    act(() => actions.moveTodo(id, "2026-08-11"));
+    expect(result.current.todos[0].date).toBe("2026-08-11");
+
+    act(() => actions.deleteTodo(id));
+    expect(result.current.todos.length).toBe(0);
+  });
+
+  test("addTodo increments order per day and reorderTodos applies", () => {
+    const { result } = renderHook(() => useAppState());
+    act(() => actions.addTodo("A", "2026-08-10"));
+    act(() => actions.addTodo("B", "2026-08-10"));
+    const [a, b] = result.current.todos;
+    expect(b.order).toBeGreaterThan(a.order);
+    act(() => actions.reorderTodos("2026-08-10", [b.id, a.id]));
+    const byId = new Map(result.current.todos.map((t) => [t.id, t.order]));
+    expect(byId.get(b.id)!).toBeLessThan(byId.get(a.id)!);
   });
 
   test("useHabits can include archived", () => {
