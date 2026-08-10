@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import {
   Habit,
   HabitType,
+  HabitGoalType,
+  Aggregation,
   Schedule,
   EMOJI_SUGGESTIONS,
   PALETTE,
@@ -20,6 +22,10 @@ export interface HabitDraft {
   color: string;
   type: HabitType;
   schedule: Schedule;
+  goalType: HabitGoalType;
+  unit?: string;
+  target?: number;
+  aggregation?: Aggregation;
 }
 
 function toDraft(h?: Habit | null): HabitDraft {
@@ -31,6 +37,7 @@ function toDraft(h?: Habit | null): HabitDraft {
       color: PALETTE[0],
       type: "build",
       schedule: { type: "daily" },
+      goalType: "binary",
     };
   return {
     name: h.name,
@@ -39,6 +46,10 @@ function toDraft(h?: Habit | null): HabitDraft {
     color: h.color,
     type: h.type,
     schedule: h.schedule,
+    goalType: h.goalType ?? "binary",
+    unit: h.unit,
+    target: h.target,
+    aggregation: h.aggregation,
   };
 }
 
@@ -229,6 +240,81 @@ export function HabitForm({
             </button>
           ))}
         </div>
+
+        {/* Tracking mode */}
+        <label className="block text-xs uppercase tracking-wide text-text-faint mb-1.5">
+          Tracking
+        </label>
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          {(
+            [
+              ["binary", "✓ Yes / no"],
+              ["measurable", "🔢 Amount"],
+            ] as const
+          ).map(([val, lab]) => (
+            <button
+              key={val}
+              onClick={() => setDraft((d) => ({ ...d, goalType: val }))}
+              className={`rounded-xl py-2.5 text-sm font-medium border transition ${
+                draft.goalType === val
+                  ? "border-accent bg-accent/10 text-text"
+                  : "border-border text-text-dim"
+              }`}
+            >
+              {lab}
+            </button>
+          ))}
+        </div>
+
+        {draft.goalType === "measurable" && (
+          <div className="mb-4 grid grid-cols-2 gap-2">
+            <label className="block">
+              <span className="text-[11px] uppercase tracking-wide text-text-faint">
+                Daily target
+              </span>
+              <input
+                inputMode="decimal"
+                value={draft.target ?? ""}
+                onChange={(e) =>
+                  setDraft((d) => ({
+                    ...d,
+                    target: e.target.value ? Number(e.target.value.replace(/[^\d.]/g, "")) : undefined,
+                  }))
+                }
+                placeholder="e.g. 8"
+                className="mt-1 w-full bg-bg-elev-2 rounded-lg px-3 py-2 tabular-nums outline-none focus:ring-2 focus:ring-accent/50"
+              />
+            </label>
+            <label className="block">
+              <span className="text-[11px] uppercase tracking-wide text-text-faint">
+                Unit
+              </span>
+              <input
+                value={draft.unit ?? ""}
+                onChange={(e) => setDraft((d) => ({ ...d, unit: e.target.value }))}
+                placeholder="e.g. glasses, min"
+                className="mt-1 w-full bg-bg-elev-2 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-accent/50"
+              />
+            </label>
+            <label className="block col-span-2">
+              <span className="text-[11px] uppercase tracking-wide text-text-faint">
+                Roll-up over a period
+              </span>
+              <select
+                value={draft.aggregation ?? "sum"}
+                onChange={(e) =>
+                  setDraft((d) => ({ ...d, aggregation: e.target.value as Aggregation }))
+                }
+                className="mt-1 w-full bg-bg-elev-2 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-accent/50"
+              >
+                <option value="sum">Sum (total)</option>
+                <option value="avg">Average</option>
+                <option value="max">Max</option>
+                <option value="last">Last</option>
+              </select>
+            </label>
+          </div>
+        )}
 
         {/* Schedule */}
         <label className="block text-xs uppercase tracking-wide text-text-faint mb-1.5">

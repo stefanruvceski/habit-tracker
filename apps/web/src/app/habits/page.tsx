@@ -9,7 +9,7 @@ import {
   useHydrated,
 } from "../../lib/store";
 import { AppState, Habit } from "@habit/core";
-import { bestStreak, currentStreak, isDone, isScheduled } from "@habit/core";
+import { bestStreak, currentStreak, isDoneOn, isScheduled } from "@habit/core";
 import { HabitForm, HabitDraft } from "../../components/HabitForm";
 import { Heatmap, CellState } from "../../components/Heatmap";
 import { Card, PageHeader } from "../../components/ui";
@@ -156,7 +156,7 @@ function HabitManageCard({
         : `${habit.schedule.days.length} days/week`;
 
   const getState = (key: string): CellState => {
-    if (isDone(state.entries, habit.id, key)) return "done";
+    if (isDoneOn(habit, state.entries, key)) return "done";
     if (isScheduled(habit, key)) return "missed";
     return "off";
   };

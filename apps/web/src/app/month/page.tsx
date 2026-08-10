@@ -7,6 +7,8 @@ import {
   currentStreak,
   dayProgress,
   habitMonthRatio,
+  isDoneOn,
+  isMeasurable,
   monthStats,
 } from "@habit/core";
 import { MONTH_NAMES, daysInMonth, makeKey } from "@habit/core";
@@ -142,7 +144,15 @@ export default function MonthPage() {
             year={year}
             month={month}
             days={days}
-            onToggle={actions.toggle}
+            onToggle={(habitId, key) => {
+              const h = habits.find((x) => x.id === habitId);
+              if (h && isMeasurable(h)) {
+                // Quick fill from the grid: done → clear, otherwise set to target.
+                actions.setAmount(habitId, key, isDoneOn(h, state.entries, key) ? 0 : h.target ?? 1);
+              } else {
+                actions.toggle(habitId, key);
+              }
+            }}
             autoScrollDay={
               year === now.getFullYear() && month === now.getMonth()
                 ? now.getDate()

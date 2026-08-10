@@ -4,7 +4,9 @@ import { useEffect, useRef } from "react";
 import { Habit, Entries } from "@habit/core";
 import {
   doneCountOnDate,
-  isDone,
+  isDoneOn,
+  isMeasurable,
+  amountOn,
   isScheduled,
   scheduledCountOnDate,
 } from "@habit/core";
@@ -104,9 +106,11 @@ export function MonthGrid({
               </td>
               {days.map((day) => {
                 const key = makeKey(year, month, day);
-                const done = isDone(entries, h.id, key);
+                const done = isDoneOn(h, entries, key);
                 const scheduled = isScheduled(h, key);
                 const future = key > today;
+                const measurable = isMeasurable(h);
+                const amount = measurable ? amountOn(entries, h.id, key) : 0;
                 return (
                   <td key={day} className="p-0.5 text-center">
                     <button
@@ -115,24 +119,35 @@ export function MonthGrid({
                       aria-label={`${h.name} ${key}`}
                       className={`w-7 h-7 rounded-md border-2 grid place-items-center mx-auto transition ${
                         done ? "pop" : ""
-                      } ${!scheduled && !done ? "opacity-30" : ""} ${
-                        future && !done ? "opacity-20" : ""
+                      } ${!scheduled && !done && amount === 0 ? "opacity-30" : ""} ${
+                        future && !done && amount === 0 ? "opacity-20" : ""
                       }`}
                       style={{
                         borderColor: h.color,
                         background: done ? h.color : "transparent",
                       }}
                     >
-                      {done && (
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                          <path
-                            d="M5 13l4 4L19 7"
-                            stroke="var(--bg)"
-                            strokeWidth="3.5"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
+                      {measurable ? (
+                        amount > 0 && (
+                          <span
+                            className="text-[10px] font-semibold tabular-nums leading-none"
+                            style={{ color: done ? "var(--bg)" : h.color }}
+                          >
+                            {amount}
+                          </span>
+                        )
+                      ) : (
+                        done && (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                            <path
+                              d="M5 13l4 4L19 7"
+                              stroke="var(--bg)"
+                              strokeWidth="3.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        )
                       )}
                     </button>
                   </td>

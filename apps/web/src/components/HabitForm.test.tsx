@@ -58,7 +58,6 @@ describe("HabitForm", () => {
     fireEvent.click(getByText("Days"));
     // toggle a weekday label (Mo is Monday-first first entry)
     fireEvent.click(getByText("Mo"));
-    fireEvent.change; // no-op
   });
 
   test("edit flow shows delete with confirm, then deletes", () => {
@@ -71,6 +70,27 @@ describe("HabitForm", () => {
     fireEvent.click(getByText("Delete")); // arms confirm
     fireEvent.click(getByText("Confirm delete"));
     expect(onDelete).toHaveBeenCalledOnce();
+  });
+
+  test("measurable flow: set amount tracking, target and unit", () => {
+    const onSave = vi.fn();
+    const { getByText, getByPlaceholderText } = render(
+      <HabitForm onSave={onSave} onClose={() => {}} />,
+    );
+    fireEvent.change(getByPlaceholderText("e.g. Morning run"), {
+      target: { value: "Water" },
+    });
+    fireEvent.click(getByText("🔢 Amount"));
+    fireEvent.change(getByPlaceholderText("e.g. 8"), { target: { value: "8" } });
+    fireEvent.change(getByPlaceholderText("e.g. glasses, min"), {
+      target: { value: "glasses" },
+    });
+    fireEvent.click(getByText("Add habit"));
+    expect(onSave).toHaveBeenCalledOnce();
+    const draft = onSave.mock.calls[0][0];
+    expect(draft.goalType).toBe("measurable");
+    expect(draft.target).toBe(8);
+    expect(draft.unit).toBe("glasses");
   });
 
   test("close via backdrop and X button", () => {
