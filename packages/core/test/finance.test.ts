@@ -34,6 +34,7 @@ import {
   parseNbsResponse,
   fetchNbsRates,
   fetchRates,
+  newFinanceId,
 } from "../src/finance.ts";
 
 let idc = 0;
@@ -540,4 +541,91 @@ test("financeYears returns distinct years plus current, descending", () => {
   assert.ok(years.includes(new Date().getFullYear()));
   // sorted descending
   for (let i = 1; i < years.length; i++) assert.ok(years[i - 1] > years[i]);
+});
+
+// --- edge cases for full coverage -----------------------------------------
+
+test("newFinanceId returns unique, prefixed ids", () => {
+  const a = newFinanceId("tx");
+  const b = newFinanceId("tx");
+  assert.notEqual(a, b);
+  assert.match(a, /^tx_/);
+  assert.match(newFinanceId("src"), /^src_/);
+});
+
+test("fetchFxRates throws 'No matching rates' when the base has no requested code", async () => {
+  const stub = async () => ({ ok: true, status: 200, json: async () => ({ rsd: {} }) });
+  await assert.rejects(() => fetchFxRates("RSD", ["EUR"], { fetchImpl: stub }));
+});
+
+test("fetchFxRates surfaces a thrown json() error", async () => {
+  const stub = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => {
+      throw new Error("bad json");
+    },
+  });
+  await assert.rejects(() => fetchFxRates("RSD", ["EUR"], { fetchImpl: stub }));
+});
+
+test("fetchNbsRates short-circuits when only the base is requested", async () => {
+  let called = false;
+  const stub = async () => {
+    called = true;
+    return { ok: true, status: 200, json: async () => ({}) };
+  };
+  const res = await fetchNbsRates("RSD", ["RSD"], { fetchImpl: stub });
+  assert.equal(called, false);
+  assert.deepEqual(res.rates, []);
+});
+
+test("fetchNbsRates throws on an HTTP error", async () => {
+  const stub = async () => ({ ok: false, status: 500, json: async () => ({}) });
+  await assert.rejects(() => fetchNbsRates("RSD", ["EUR"], { fetchImpl: stub }));
+});
+
+test("fetchNbsRates throws when the non-RSD base is missing from the list", async () => {
+  const stub = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({ rates: [{ code: "USD", exchange_middle: 108, parity: 1 }] }),
+  });
+  // base GBP not present → cannot cross-compute
+  await assert.rejects(() => fetchNbsRates("GBP", ["USD"], { fetchImpl: stub }));
+});
+
+test("fetchNbsRates throws 'No matching NBS rates' when nothing requested is present", async () => {
+  const stub = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({ rates: [{ code: "EUR", exchange_middle: 117, parity: 1 }] }),
+  });
+  await assert.rejects(() => fetchNbsRates("RSD", ["GBP"], { fetchImpl: stub }));
+});
+
+test("fetchNbsRates surfaces a thrown json() error", async () => {
+  const stub = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => {
+      throw new Error("boom");
+    },
+  });
+  await assert.rejects(() => fetchNbsRates("RSD", ["EUR"], { fetchImpl: stub }));
+});
+
+test("fetchFxRateOn returns null when a today-dated fetch fails (no fallback)", async () => {
+  const today = new Date();
+  const p2 = (n) => (n < 10 ? `0${n}` : `${n}`);
+  const todayStr = `${today.getFullYear()}-${p2(today.getMonth() + 1)}-${p2(today.getDate())}`;
+  const stub = async () => ({ ok: true, status: 200, json: async () => ({ rsd: {} }) });
+  const rate = await fetchFxRateOn("RSD", "EUR", todayStr, { fetchImpl: stub });
+  assert.equal(rate, null);
+});
+
+test("fetchFxRateOn returns null when both historical and latest fetches fail", async () => {
+  const stub = async () => ({ ok: false, status: 503, json: async () => ({}) });
+  const rate = await fetchFxRateOn("RSD", "EUR", "2019-01-01", { fetchImpl: stub });
+  assert.equal(rate, null);
 });

@@ -11,7 +11,11 @@
     "build:web": "npm run build -w web",
     "lint:web": "npm run lint -w web",
     "mobile": "npm run start -w mobile",
-    "test:core": "node --test --experimental-strip-types packages/core/test/*.test.ts",
+    "test:core": "node --import ./packages/core/test/register.mjs --test --experimental-strip-types packages/core/test/*.test.ts",
+    "coverage:core": "node --import ./packages/core/test/register.mjs --test --experimental-strip-types --experimental-test-coverage packages/core/test/*.test.ts",
+    "test:web": "npm run test -w web",
+    "test:mobile": "npm run test -w mobile",
+    "test": "npm run test:core && npm run test:web && npm run test:mobile",
     "typecheck": "npm run typecheck -w @habit/core && npm run typecheck -w web"
   }
 }
