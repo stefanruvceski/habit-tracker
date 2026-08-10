@@ -17,6 +17,10 @@ import {
   mindsetScore,
   yearSummary,
   availableYears,
+  isMeasurable,
+  amountOn,
+  isDoneOn,
+  periodAmount,
 } from "../src/stats.ts";
 import type { Todo } from "../src/todos.ts";
 import { addDays, todayKey } from "../src/date.ts";
@@ -209,4 +213,64 @@ test("availableYears includes data years plus the current year, desc", () => {
   assert.ok(years.includes(2022));
   assert.ok(years.includes(new Date().getFullYear()));
   for (let i = 1; i < years.length; i++) assert.ok(years[i - 1] > years[i]);
+});
+
+// --- measurable habits -----------------------------------------------------
+
+test("isMeasurable reflects the goalType", () => {
+  assert.equal(isMeasurable(habit()), false);
+  assert.equal(isMeasurable(habit({ goalType: "measurable" })), true);
+});
+
+test("amountOn reads numbers and maps booleans to 1/0", () => {
+  const entries = { "2026-08-10": { h1: 6 as number }, "2026-08-11": { h1: true } };
+  assert.equal(amountOn(entries, "h1", "2026-08-10"), 6);
+  assert.equal(amountOn(entries, "h1", "2026-08-11"), 1);
+  assert.equal(amountOn(entries, "h1", "2026-08-12"), 0);
+});
+
+test("isDoneOn: binary uses truthiness", () => {
+  const h = habit();
+  assert.equal(isDoneOn(h, { "2026-08-10": { h1: true } }, "2026-08-10"), true);
+  assert.equal(isDoneOn(h, {}, "2026-08-10"), false);
+});
+
+test("isDoneOn: measurable build needs amount >= target", () => {
+  const h = habit({ goalType: "measurable", target: 8, unit: "glasses" });
+  assert.equal(isDoneOn(h, { "2026-08-10": { h1: 8 } }, "2026-08-10"), true);
+  assert.equal(isDoneOn(h, { "2026-08-10": { h1: 5 } }, "2026-08-10"), false);
+  assert.equal(isDoneOn(h, {}, "2026-08-10"), false); // no amount logged
+});
+
+test("isDoneOn: measurable quit needs amount <= target (logged)", () => {
+  const h = habit({ type: "quit", goalType: "measurable", target: 30, unit: "min" });
+  assert.equal(isDoneOn(h, { "2026-08-10": { h1: 20 } }, "2026-08-10"), true);
+  assert.equal(isDoneOn(h, { "2026-08-10": { h1: 45 } }, "2026-08-10"), false);
+  assert.equal(isDoneOn(h, {}, "2026-08-10"), false); // must log to count
+});
+
+test("isDoneOn: measurable with no target counts any positive amount", () => {
+  const h = habit({ goalType: "measurable", target: 0 });
+  assert.equal(isDoneOn(h, { "2026-08-10": { h1: 3 } }, "2026-08-10"), true);
+  assert.equal(isDoneOn(h, { "2026-08-10": { h1: 0 } }, "2026-08-10"), false);
+});
+
+test("measurable amounts flow through dayProgress and streaks", () => {
+  const h = habit({ id: "a", goalType: "measurable", target: 8 });
+  const entries = { "2026-08-10": { a: 8 }, "2026-08-11": { a: 4 } };
+  assert.equal(dayProgress(entries, [h], "2026-08-10"), 1);
+  assert.equal(dayProgress(entries, [h], "2026-08-11"), 0); // under target
+});
+
+test("periodAmount aggregates by the habit's aggregation", () => {
+  const keys = ["2026-08-01", "2026-08-02", "2026-08-03"];
+  const entries = { "2026-08-01": { a: 10 }, "2026-08-02": { a: 20 }, "2026-08-03": { a: 30 } };
+  const base = { id: "a", goalType: "measurable" as const };
+  assert.equal(periodAmount(entries, habit({ ...base, aggregation: "sum" }), keys), 60);
+  assert.equal(periodAmount(entries, habit({ ...base, aggregation: "avg" }), keys), 20);
+  assert.equal(periodAmount(entries, habit({ ...base, aggregation: "max" }), keys), 30);
+  assert.equal(periodAmount(entries, habit({ ...base, aggregation: "last" }), keys), 30);
+  assert.equal(periodAmount({}, habit(base), keys), 0);
+  // default aggregation is sum
+  assert.equal(periodAmount(entries, habit(base), keys), 60);
 });

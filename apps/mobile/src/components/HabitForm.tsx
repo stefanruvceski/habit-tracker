@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Modal, View, Text, TextInput, Pressable, ScrollView, StyleSheet } from "react-native";
-import { Habit, HabitType, Schedule, EMOJI_SUGGESTIONS, PALETTE, WEEKDAY_SHORT, WEEKDAY_ORDER_MON, searchIcons } from "@habit/core";
+import { Habit, HabitType, HabitGoalType, Aggregation, Schedule, EMOJI_SUGGESTIONS, PALETTE, WEEKDAY_SHORT, WEEKDAY_ORDER_MON, searchIcons } from "@habit/core";
 import { C } from "../lib/theme";
 import { HabitGlyph } from "./HabitGlyph";
 
@@ -11,11 +11,35 @@ export interface HabitDraft {
   color: string;
   type: HabitType;
   schedule: Schedule;
+  goalType: HabitGoalType;
+  unit?: string;
+  target?: number;
+  aggregation?: Aggregation;
 }
 
 function toDraft(h?: Habit | null): HabitDraft {
-  if (!h) return { name: "", icon: "target", emoji: "🎯", color: PALETTE[0], type: "build", schedule: { type: "daily" } };
-  return { name: h.name, icon: h.icon, emoji: h.emoji, color: h.color, type: h.type, schedule: h.schedule };
+  if (!h)
+    return {
+      name: "",
+      icon: "target",
+      emoji: "🎯",
+      color: PALETTE[0],
+      type: "build",
+      schedule: { type: "daily" },
+      goalType: "binary",
+    };
+  return {
+    name: h.name,
+    icon: h.icon,
+    emoji: h.emoji,
+    color: h.color,
+    type: h.type,
+    schedule: h.schedule,
+    goalType: h.goalType ?? "binary",
+    unit: h.unit,
+    target: h.target,
+    aggregation: h.aggregation,
+  };
 }
 
 export function HabitForm({
@@ -158,6 +182,78 @@ export function HabitForm({
               ))}
             </View>
 
+            <Text style={styles.label}>TRACKING</Text>
+            <View style={{ flexDirection: "row", gap: 8, marginBottom: 12 }}>
+              {(
+                [
+                  ["binary", "✓ Yes / no"],
+                  ["measurable", "🔢 Amount"],
+                ] as const
+              ).map(([val, lab]) => (
+                <Pressable
+                  key={val}
+                  onPress={() => setDraft((d) => ({ ...d, goalType: val }))}
+                  style={[styles.seg, draft.goalType === val && styles.segActive]}
+                >
+                  <Text style={{ color: draft.goalType === val ? C.text : C.dim }}>{lab}</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {draft.goalType === "measurable" && (
+              <View style={{ marginBottom: 12, gap: 8 }}>
+                <View style={{ flexDirection: "row", gap: 8 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.label}>DAILY TARGET</Text>
+                    <TextInput
+                      value={draft.target != null ? String(draft.target) : ""}
+                      onChangeText={(t) =>
+                        setDraft((d) => ({
+                          ...d,
+                          target: t ? Number(t.replace(/[^\d.]/g, "")) || undefined : undefined,
+                        }))
+                      }
+                      keyboardType="decimal-pad"
+                      placeholder="e.g. 8"
+                      placeholderTextColor={C.faint}
+                      style={styles.input}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.label}>UNIT</Text>
+                    <TextInput
+                      value={draft.unit ?? ""}
+                      onChangeText={(t) => setDraft((d) => ({ ...d, unit: t }))}
+                      placeholder="glasses, min"
+                      placeholderTextColor={C.faint}
+                      style={styles.input}
+                    />
+                  </View>
+                </View>
+                <Text style={styles.label}>ROLL-UP</Text>
+                <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
+                  {(
+                    [
+                      ["sum", "Sum"],
+                      ["avg", "Avg"],
+                      ["max", "Max"],
+                      ["last", "Last"],
+                    ] as const
+                  ).map(([val, lab]) => (
+                    <Pressable
+                      key={val}
+                      onPress={() => setDraft((d) => ({ ...d, aggregation: val }))}
+                      style={[styles.aggChip, (draft.aggregation ?? "sum") === val && styles.segActive]}
+                    >
+                      <Text style={{ color: (draft.aggregation ?? "sum") === val ? C.text : C.dim, fontSize: 13 }}>
+                        {lab}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            )}
+
             <Text style={styles.label}>SCHEDULE</Text>
             <View style={{ flexDirection: "row", gap: 8, marginBottom: 10 }}>
               {([["daily", "Daily"], ["weekdays", "Days"], ["weekly", "Weekly"]] as const).map(([val, lab]) => (
@@ -242,6 +338,7 @@ const styles = StyleSheet.create({
   emojiInput: { width: 46, textAlign: "center", backgroundColor: C.elev2, borderRadius: 9, paddingVertical: 6, color: C.text, fontSize: 18 },
   colorDot: { width: 32, height: 32, borderRadius: 16 },
   seg: { flex: 1, borderRadius: 12, borderWidth: 1, borderColor: C.border, paddingVertical: 10, alignItems: "center" },
+  aggChip: { borderRadius: 10, borderWidth: 1, borderColor: C.border, paddingVertical: 8, paddingHorizontal: 14, alignItems: "center" },
   segActive: { borderColor: C.accent, backgroundColor: "rgba(52,211,153,0.1)" },
   dayBtn: { flex: 1, borderRadius: 9, backgroundColor: C.elev2, paddingVertical: 9, alignItems: "center" },
   stepBtn: { width: 38, height: 38, borderRadius: 10, backgroundColor: C.elev2, alignItems: "center", justifyContent: "center" },

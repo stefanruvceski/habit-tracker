@@ -7,11 +7,14 @@ import {
   currentStreak,
   combinedDayCounts,
   combinedDayProgress,
-  isDone,
+  isDoneOn,
+  isMeasurable,
+  amountOn,
   isScheduled,
   todosForDate,
   overdueTodos,
 } from "@habit/core";
+import type { Habit } from "@habit/core";
 import {
   MONTH_NAMES,
   WEEKDAY_LONG,
@@ -20,7 +23,8 @@ import {
   todayKey,
 } from "@habit/core";
 import { HabitRow } from "../components/HabitRow";
-import { TodoRow } from "../components/TodoRow";
+import { HabitGlyph } from "../components/HabitGlyph";
+import { TodoList } from "../components/TodoList";
 import { WeekStrip } from "../components/WeekStrip";
 import { Card, ProgressRing } from "../components/ui";
 
@@ -142,17 +146,15 @@ export default function TodayPage() {
         <h2 className="text-sm font-semibold text-text-dim mb-3">
           To-dos {isToday ? "today" : "this day"}
         </h2>
-        <div className="space-y-2">
-          {todos.map((t) => (
-            <TodoRow
-              key={t.id}
-              todo={t}
-              onToggle={() => actions.toggleTodo(t.id)}
-              onStar={() => actions.setTodoPriority(t.id, !t.priority)}
-              onDelete={() => actions.deleteTodo(t.id)}
-            />
-          ))}
-        </div>
+        <TodoList
+          todos={todos}
+          onToggle={(id) => actions.toggleTodo(id)}
+          onStar={(id) => {
+            const t = todos.find((x) => x.id === id);
+            actions.setTodoPriority(id, !t?.priority);
+          }}
+          onDelete={(id) => actions.deleteTodo(id)}
+        />
         <div className="flex gap-2 mt-3">
           <input
             value={newTask}
@@ -193,15 +195,25 @@ export default function TodayPage() {
         )
       ) : (
         <div className="space-y-2">
-          {scheduled.map((h) => (
-            <HabitRow
-              key={h.id}
-              habit={h}
-              done={isDone(state.entries, h.id, dateKey)}
-              streak={currentStreak(state.entries, h)}
-              onToggle={() => actions.toggle(h.id, dateKey)}
-            />
-          ))}
+          {scheduled.map((h) =>
+            isMeasurable(h) ? (
+              <MeasurableRow
+                key={h.id}
+                habit={h}
+                amount={amountOn(state.entries, h.id, dateKey)}
+                done={isDoneOn(h, state.entries, dateKey)}
+                onSet={(v) => actions.setAmount(h.id, dateKey, v)}
+              />
+            ) : (
+              <HabitRow
+                key={h.id}
+                habit={h}
+                done={isDoneOn(h, state.entries, dateKey)}
+                streak={currentStreak(state.entries, h)}
+                onToggle={() => actions.toggle(h.id, dateKey)}
+              />
+            ),
+          )}
         </div>
       )}
 
@@ -226,6 +238,83 @@ export default function TodayPage() {
           onChange={(v) => actions.setMental(dateKey, { motivation: v })}
         />
       </Card>
+    </div>
+  );
+}
+
+function MeasurableRow({
+  habit,
+  amount,
+  done,
+  onSet,
+}: {
+  habit: Habit;
+  amount: number;
+  done: boolean;
+  onSet: (amount: number) => void;
+}) {
+  const target = habit.target ?? 0;
+  const unit = habit.unit ?? "";
+  // Sensible +/- step: 1 for small targets, ~10% for larger ones.
+  const step = target >= 50 ? Math.max(1, Math.round(target / 10)) : 1;
+  const pct = target > 0 ? Math.min(100, (amount / target) * 100) : amount > 0 ? 100 : 0;
+
+  return (
+    <div
+      className="rounded-2xl border p-3"
+      style={
+        done
+          ? { borderColor: "transparent", background: `${habit.color}1f` }
+          : { borderColor: "var(--border)", background: "var(--bg-elev)" }
+      }
+    >
+      <div className="flex items-center gap-3">
+        <span
+          className="grid place-items-center w-10 h-10 rounded-xl shrink-0"
+          style={{ background: `${habit.color}22` }}
+        >
+          <HabitGlyph icon={habit.icon} emoji={habit.emoji} color={habit.color} size={22} />
+        </span>
+        <div className="flex-1 min-w-0">
+          <div className="font-medium truncate">{habit.name}</div>
+          <div className="text-xs text-text-dim tabular-nums">
+            {amount}
+            {target > 0 ? ` / ${target}` : ""} {unit}
+            {done ? " ✓" : ""}
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => onSet(Math.max(0, amount - step))}
+            className="w-9 h-9 grid place-items-center rounded-lg bg-bg-elev-2 border border-border text-lg"
+            aria-label="Decrease"
+          >
+            −
+          </button>
+          <input
+            inputMode="numeric"
+            value={amount || ""}
+            onChange={(e) => onSet(Math.max(0, Number(e.target.value.replace(/[^\d.]/g, "")) || 0))}
+            placeholder="0"
+            className="w-12 text-center bg-bg-elev-2 border border-border rounded-lg py-1.5 tabular-nums"
+          />
+          <button
+            onClick={() => onSet(amount + step)}
+            className="w-9 h-9 grid place-items-center rounded-lg bg-bg-elev-2 border border-border text-lg"
+            aria-label="Increase"
+          >
+            +
+          </button>
+        </div>
+      </div>
+      {target > 0 && (
+        <div className="mt-2 h-1.5 rounded-full bg-bg-elev-2 overflow-hidden">
+          <div
+            className="h-full rounded-full"
+            style={{ width: `${pct}%`, background: habit.color }}
+          />
+        </div>
+      )}
     </div>
   );
 }

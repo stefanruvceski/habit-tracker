@@ -52,6 +52,15 @@ describe("habit store", () => {
     expect(result.current.entries["2026-08-11"]?.[id]).toBeUndefined();
   });
 
+  test("setAmount stores a number and clears on zero", () => {
+    const { result } = renderHook(() => useAppState());
+    const id = result.current.habits[0].id;
+    act(() => actions.setAmount(id, "2026-08-10", 6));
+    expect(result.current.entries["2026-08-10"][id]).toBe(6);
+    act(() => actions.setAmount(id, "2026-08-10", 0));
+    expect(result.current.entries["2026-08-10"]?.[id]).toBeUndefined();
+  });
+
   test("updateHabit patches fields", () => {
     const { result } = renderHook(() => useAppState());
     const id = result.current.habits[0].id;

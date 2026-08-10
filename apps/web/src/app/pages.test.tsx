@@ -1,5 +1,5 @@
 import { beforeEach, describe, test, expect, vi } from "vitest";
-import { act, render, fireEvent, within } from "@testing-library/react";
+import { act, render, fireEvent } from "@testing-library/react";
 import type { FinanceState } from "@habit/core";
 import { actions } from "../lib/store";
 import { financeActions } from "../lib/financeStore";
@@ -63,6 +63,25 @@ describe("Today page", () => {
     expect(strip).toBeTruthy();
     expect(strip!.querySelectorAll("button").length).toBe(7);
   });
+
+  test("renders a measurable habit with +/- controls", () => {
+    act(() =>
+      actions.addHabit({
+        name: "Water",
+        emoji: "💧",
+        color: "#60a5fa",
+        type: "build",
+        schedule: { type: "daily" },
+        goalType: "measurable",
+        target: 8,
+        unit: "glasses",
+      }),
+    );
+    const { getByText, getAllByLabelText } = render(<TodayPage />);
+    expect(getByText("Water")).toBeTruthy();
+    fireEvent.click(getAllByLabelText("Increase")[0]);
+    fireEvent.click(getAllByLabelText("Decrease")[0]);
+  });
 });
 
 describe("Month page", () => {
@@ -79,6 +98,36 @@ describe("Dashboard page", () => {
     const { getByText } = render(<DashboardPage />);
     expect(getByText("Yearly dashboard")).toBeTruthy();
     expect(getByText("Finance")).toBeTruthy();
+  });
+
+  test("shows measurable habit totals for the year", () => {
+    const y = new Date().getFullYear();
+    act(() =>
+      actions.addHabit({
+        name: "Water",
+        emoji: "💧",
+        color: "#60a5fa",
+        type: "build",
+        schedule: { type: "daily" },
+        goalType: "measurable",
+        target: 8,
+        unit: "glasses",
+      }),
+    );
+    // log a couple of amounts this year
+    act(() => {
+      const id = (
+        JSON.parse(localStorage.getItem("habit-tracker.v1")!).habits as {
+          id: string;
+          name: string;
+        }[]
+      ).find((h) => h.name === "Water")!.id;
+      actions.setAmount(id, `${y}-01-05`, 6);
+      actions.setAmount(id, `${y}-01-06`, 8);
+    });
+    const { getByText } = render(<DashboardPage />);
+    expect(getByText("Measured this year")).toBeTruthy();
+    expect(getByText("14")).toBeTruthy(); // 6 + 8 total (sum)
   });
 });
 

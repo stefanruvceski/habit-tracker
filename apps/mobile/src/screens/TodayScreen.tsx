@@ -1,5 +1,15 @@
 import { useState } from "react";
-import { View, Text, Pressable, ScrollView, StyleSheet, TextInput } from "react-native";
+import {
+  View,
+  Text,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  LayoutAnimation,
+  Platform,
+  UIManager,
+} from "react-native";
 import Svg, { Path } from "react-native-svg";
 import {
   MONTH_NAMES,
@@ -10,11 +20,14 @@ import {
   currentStreak,
   combinedDayCounts,
   combinedDayProgress,
-  isDone,
+  isDoneOn,
+  isMeasurable,
+  amountOn,
   isScheduled,
   todosForDate,
   overdueTodos,
 } from "@habit/core";
+import type { Habit } from "@habit/core";
 import { actions, useAppState, useHabits } from "../lib/store";
 import { C } from "../lib/theme";
 import { Card, ProgressRing } from "../components/ui";
@@ -22,11 +35,25 @@ import { HabitGlyph } from "../components/HabitGlyph";
 import { WeekStrip } from "../components/WeekStrip";
 import { TodoRow } from "../components/TodoRow";
 
+// Enable LayoutAnimation on old-architecture Android (no-op elsewhere).
+if (
+  Platform.OS === "android" &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
 export function TodayScreen() {
   const state = useAppState();
   const habits = useHabits();
   const [dateKey, setDateKey] = useState(todayKey());
   const [newTask, setNewTask] = useState("");
+
+  // Animate the to-do list gliding to its new order when priority changes.
+  function toggleStar(id: string, priority: boolean) {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    actions.setTodoPriority(id, priority);
+  }
 
   const d = fromKey(dateKey);
   const isToday = dateKey === todayKey();
@@ -108,7 +135,7 @@ export function TodayScreen() {
               key={t.id}
               todo={t}
               onToggle={() => actions.toggleTodo(t.id)}
-              onStar={() => actions.setTodoPriority(t.id, !t.priority)}
+              onStar={() => toggleStar(t.id, !t.priority)}
               onDelete={() => actions.deleteTodo(t.id)}
             />
           ))}
@@ -144,7 +171,18 @@ export function TodayScreen() {
         )
       ) : (
         scheduled.map((h) => {
-          const done = isDone(state.entries, h.id, dateKey);
+          const done = isDoneOn(h, state.entries, dateKey);
+          if (isMeasurable(h)) {
+            return (
+              <MeasurableRow
+                key={h.id}
+                habit={h}
+                amount={amountOn(state.entries, h.id, dateKey)}
+                done={done}
+                onSet={(v) => actions.setAmount(h.id, dateKey, v)}
+              />
+            );
+          }
           const streak = currentStreak(state.entries, h);
           return (
             <Pressable
@@ -186,6 +224,63 @@ export function TodayScreen() {
         <Stepper label="⚡ Motivation" value={mental.motivation} onChange={(v) => actions.setMental(dateKey, { motivation: v })} />
       </Card>
     </ScrollView>
+  );
+}
+
+function MeasurableRow({
+  habit,
+  amount,
+  done,
+  onSet,
+}: {
+  habit: Habit;
+  amount: number;
+  done: boolean;
+  onSet: (amount: number) => void;
+}) {
+  const target = habit.target ?? 0;
+  const unit = habit.unit ?? "";
+  const step = target >= 50 ? Math.max(1, Math.round(target / 10)) : 1;
+  const pct = target > 0 ? Math.min(100, (amount / target) * 100) : amount > 0 ? 100 : 0;
+
+  return (
+    <View
+      style={[
+        styles.row,
+        { flexDirection: "column", alignItems: "stretch", gap: 10 },
+        done ? { backgroundColor: habit.color + "1f", borderColor: "transparent" } : null,
+      ]}
+    >
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+        <View style={[styles.emojiBox, { backgroundColor: habit.color + "22" }]}>
+          <HabitGlyph icon={habit.icon} emoji={habit.emoji} color={habit.color} size={24} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: C.text, fontWeight: "600", fontSize: 15 }}>{habit.name}</Text>
+          <Text style={{ color: C.dim, fontSize: 12 }}>
+            {amount}
+            {target > 0 ? ` / ${target}` : ""} {unit}
+            {done ? " ✓" : ""}
+          </Text>
+        </View>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <Pressable style={styles.stepBtn} onPress={() => onSet(Math.max(0, amount - step))}>
+            <Text style={styles.stepBtnText}>−</Text>
+          </Pressable>
+          <Text style={{ color: C.text, fontWeight: "700", minWidth: 28, textAlign: "center" }}>
+            {amount}
+          </Text>
+          <Pressable style={styles.stepBtn} onPress={() => onSet(amount + step)}>
+            <Text style={styles.stepBtnText}>+</Text>
+          </Pressable>
+        </View>
+      </View>
+      {target > 0 && (
+        <View style={styles.track}>
+          <View style={[styles.trackFill, { width: `${pct}%`, backgroundColor: habit.color }]} />
+        </View>
+      )}
+    </View>
   );
 }
 

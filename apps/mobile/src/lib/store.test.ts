@@ -43,6 +43,14 @@ describe("mobile habit store", () => {
     expect((await persisted()).entries["2026-08-10"]?.[id]).toBeUndefined();
   });
 
+  test("setAmount stores a number and clears on zero", async () => {
+    const id = (await persisted()).habits[0].id;
+    actions.setAmount(id, "2026-08-10", 6);
+    expect((await persisted()).entries["2026-08-10"][id]).toBe(6);
+    actions.setAmount(id, "2026-08-10", 0);
+    expect((await persisted()).entries["2026-08-10"]?.[id]).toBeUndefined();
+  });
+
   test("updateHabit / deleteHabit", async () => {
     const id = (await persisted()).habits[0].id;
     actions.updateHabit(id, { name: "Renamed" });

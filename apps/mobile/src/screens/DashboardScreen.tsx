@@ -1,11 +1,22 @@
 import { useMemo, useState } from "react";
 import { View, Text, Pressable, ScrollView, StyleSheet, Dimensions } from "react-native";
-import { MONTH_NAMES, MONTH_SHORT, availableYears, yearSummary, financeKpis } from "@habit/core";
+import {
+  MONTH_NAMES,
+  MONTH_SHORT,
+  availableYears,
+  yearSummary,
+  financeKpis,
+  isMeasurable,
+  periodAmount,
+  monthKeys,
+} from "@habit/core";
+import type { Habit, Entries } from "@habit/core";
 import { useAppState, useHabits } from "../lib/store";
 import { useFinanceState, useFinanceHydrated } from "../lib/financeStore";
 import { C, pct } from "../lib/theme";
 import { Card, ProgressRing } from "../components/ui";
 import { LineChart } from "../components/Charts";
+import { HabitGlyph } from "../components/HabitGlyph";
 
 function fmtMoney(amount: number, currency: string): string {
   try {
@@ -64,6 +75,8 @@ export function DashboardScreen({ onOpenFinance }: { onOpenFinance?: () => void 
 
       <FinanceGlance year={year} onOpen={onOpenFinance} />
 
+      <MeasurableTotals year={year} habits={habits} entries={state.entries} />
+
       <Card>
         <LineChart
           series={[
@@ -90,6 +103,69 @@ export function DashboardScreen({ onOpenFinance }: { onOpenFinance?: () => void 
         ))}
       </View>
     </ScrollView>
+  );
+}
+
+const AGG_LABEL: Record<string, string> = {
+  sum: "total",
+  avg: "avg/day",
+  max: "best day",
+  last: "latest",
+};
+
+function fmtNum(n: number): string {
+  const r = Math.round(n * 10) / 10;
+  return Number.isInteger(r) ? String(r) : r.toFixed(1);
+}
+
+function MeasurableTotals({
+  year,
+  habits,
+  entries,
+}: {
+  year: number;
+  habits: Habit[];
+  entries: Entries;
+}) {
+  const measurable = habits.filter(isMeasurable);
+  const yearKeys = useMemo(() => {
+    const keys: string[] = [];
+    for (let m = 0; m < 12; m++) keys.push(...monthKeys(year, m));
+    return keys;
+  }, [year]);
+
+  if (measurable.length === 0) return null;
+
+  return (
+    <Card>
+      <Text style={{ color: C.dim, fontSize: 13, fontWeight: "700", marginBottom: 10 }}>
+        Measured this year
+      </Text>
+      {measurable.map((h) => {
+        const agg = h.aggregation ?? "sum";
+        const value = periodAmount(entries, h, yearKeys);
+        const daysLogged = yearKeys.filter(
+          (k) => typeof entries[k]?.[h.id] === "number",
+        ).length;
+        return (
+          <View key={h.id} style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 5 }}>
+            <View style={{ width: 30, height: 30, borderRadius: 8, backgroundColor: h.color + "22", alignItems: "center", justifyContent: "center" }}>
+              <HabitGlyph icon={h.icon} emoji={h.emoji} color={h.color} size={18} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: C.text, fontSize: 14 }} numberOfLines={1}>{h.name}</Text>
+              <Text style={{ color: C.faint, fontSize: 11 }}>
+                {AGG_LABEL[agg]} · {daysLogged} day{daysLogged === 1 ? "" : "s"} logged
+              </Text>
+            </View>
+            <Text style={{ color: h.color, fontSize: 18, fontWeight: "800" }}>
+              {fmtNum(value)}
+              {h.unit ? <Text style={{ color: C.dim, fontSize: 12, fontWeight: "400" }}> {h.unit}</Text> : null}
+            </Text>
+          </View>
+        );
+      })}
+    </Card>
   );
 }
 

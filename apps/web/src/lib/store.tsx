@@ -109,6 +109,16 @@ export const actions = {
     });
   },
 
+  /** Set the logged amount for a measurable habit (<= 0 clears the entry). */
+  setAmount(habitId: string, dateKey: string, amount: number) {
+    setState((s) => {
+      const day = { ...(s.entries[dateKey] ?? {}) };
+      if (Number.isFinite(amount) && amount > 0) day[habitId] = amount;
+      else delete day[habitId];
+      return { ...s, entries: { ...s.entries, [dateKey]: day } };
+    });
+  },
+
   addHabit(input: Omit<Habit, "id" | "order" | "createdAt" | "archived">) {
     setState((s) => {
       const order = s.habits.length

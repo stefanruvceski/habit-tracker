@@ -11,6 +11,56 @@ import type { AppState, Entries, Habit, Mental } from "./types";
 import type { Todo } from "./todos";
 import { todoCounts } from "./todos";
 
+/** Whether a habit tracks a numeric amount rather than a simple checkbox. */
+export function isMeasurable(habit: Habit): boolean {
+  return habit.goalType === "measurable";
+}
+
+/** Logged amount for a habit on a date (booleans map to 1 / 0). */
+export function amountOn(entries: Entries, habitId: string, dateKey: string): number {
+  const v = entries[dateKey]?.[habitId];
+  if (typeof v === "number") return v;
+  return v ? 1 : 0;
+}
+
+/**
+ * Whether a habit counts as "done" on a date, honouring measurable targets:
+ * build reaches the target (amount ≥ target), quit stays under it
+ * (amount ≤ target). A measurable habit with no logged amount is not done.
+ */
+export function isDoneOn(habit: Habit, entries: Entries, dateKey: string): boolean {
+  const v = entries[dateKey]?.[habit.id];
+  if (habit.goalType === "measurable") {
+    if (typeof v !== "number") return false;
+    const target = habit.target ?? 0;
+    if (target <= 0) return v > 0;
+    return habit.type === "quit" ? v <= target : v >= target;
+  }
+  return Boolean(v);
+}
+
+/** Roll up a measurable habit's amounts over the given date keys. */
+export function periodAmount(entries: Entries, habit: Habit, keys: string[]): number {
+  const vals: number[] = [];
+  for (const k of keys) {
+    const v = entries[k]?.[habit.id];
+    if (typeof v === "number") vals.push(v);
+    else if (v) vals.push(1);
+  }
+  if (vals.length === 0) return 0;
+  switch (habit.aggregation ?? "sum") {
+    case "avg":
+      return vals.reduce((a, b) => a + b, 0) / vals.length;
+    case "max":
+      return Math.max(...vals);
+    case "last":
+      return vals[vals.length - 1];
+    case "sum":
+    default:
+      return vals.reduce((a, b) => a + b, 0);
+  }
+}
+
 /** Whether a habit is "scheduled" (expected) on a given date. */
 export function isScheduled(habit: Habit, dateKey: string): boolean {
   const created = habit.createdAt.slice(0, 10);
@@ -36,7 +86,7 @@ export function doneCountOnDate(
   dateKey: string,
 ): number {
   let n = 0;
-  for (const h of habits) if (isDone(entries, h.id, dateKey)) n++;
+  for (const h of habits) if (isDoneOn(h, entries, dateKey)) n++;
   return n;
 }
 
@@ -57,7 +107,7 @@ export function dayProgress(
   if (scheduled === 0) return 0;
   let done = 0;
   for (const h of habits) {
-    if (isScheduled(h, dateKey) && isDone(entries, h.id, dateKey)) done++;
+    if (isScheduled(h, dateKey) && isDoneOn(h, entries, dateKey)) done++;
   }
   return done / scheduled;
 }
@@ -110,7 +160,7 @@ export function monthStats(
     for (const h of habits) {
       if (!isScheduled(h, k)) continue;
       scheduled++;
-      if (isDone(state.entries, h.id, k)) done++;
+      if (isDoneOn(h, state.entries, k)) done++;
     }
   }
   return {
@@ -134,7 +184,7 @@ export function habitMonthRatio(
   for (const k of keys) {
     if (!isScheduled(habit, k)) continue;
     scheduled++;
-    if (isDone(entries, habit.id, k)) done++;
+    if (isDoneOn(habit, entries, k)) done++;
   }
   return scheduled ? done / scheduled : 0;
 }
@@ -147,7 +197,7 @@ export function currentStreak(entries: Entries, habit: Habit): number {
   let streak = 0;
   let cursor = todayKey();
   // If today is scheduled but not yet done, allow the streak to count from yesterday.
-  if (isScheduled(habit, cursor) && !isDone(entries, habit.id, cursor)) {
+  if (isScheduled(habit, cursor) && !isDoneOn(habit, entries, cursor)) {
     cursor = addDays(cursor, -1);
   }
   const start = habit.createdAt.slice(0, 10);
@@ -155,7 +205,7 @@ export function currentStreak(entries: Entries, habit: Habit): number {
   while (cursor >= start && guard < 3660) {
     guard++;
     if (isScheduled(habit, cursor)) {
-      if (isDone(entries, habit.id, cursor)) streak++;
+      if (isDoneOn(habit, entries, cursor)) streak++;
       else break;
     }
     cursor = addDays(cursor, -1);
@@ -178,7 +228,7 @@ export function bestStreak(entries: Entries, habit: Habit): number {
   while (cursor <= end && guard < 3660) {
     guard++;
     if (isScheduled(habit, cursor)) {
-      if (isDone(entries, habit.id, cursor)) {
+      if (isDoneOn(habit, entries, cursor)) {
         run++;
         best = Math.max(best, run);
       } else {
