@@ -8,6 +8,8 @@ import { MonthScreen } from "./src/screens/MonthScreen";
 import { DashboardScreen } from "./src/screens/DashboardScreen";
 import { HabitsScreen } from "./src/screens/HabitsScreen";
 import { FinanceScreen } from "./src/screens/FinanceScreen";
+import { SignInScreen } from "./src/screens/SignInScreen";
+import { AuthProvider, useAuth } from "./src/lib/auth";
 import {
   TodayIcon,
   MonthIcon,
@@ -28,9 +30,25 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <StatusBar style="light" />
-      <Shell />
+      <AuthProvider>
+        <Gate />
+      </AuthProvider>
     </SafeAreaProvider>
   );
+}
+
+/** Gates the app behind sign-in when Supabase is configured; local-only otherwise. */
+function Gate() {
+  const { configured, loading, session } = useAuth();
+  if (configured && loading) {
+    return (
+      <View style={[styles.root, { alignItems: "center", justifyContent: "center" }]}>
+        <Text style={{ color: C.faint }}>Loading…</Text>
+      </View>
+    );
+  }
+  if (configured && !session) return <SignInScreen />;
+  return <Shell />;
 }
 
 function Shell() {
