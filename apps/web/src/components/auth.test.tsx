@@ -1,4 +1,4 @@
-import { describe, test, expect, vi } from "vitest";
+import { describe, test, expect } from "vitest";
 import { render, fireEvent, waitFor } from "@testing-library/react";
 import { AuthProvider } from "../lib/auth";
 import { SignIn } from "./SignIn";

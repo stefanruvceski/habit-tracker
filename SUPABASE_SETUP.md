@@ -13,11 +13,19 @@ breaks in production until you're ready.
    password (you won't need it for this app), and a region close to you.
 2. Wait for it to finish provisioning.
 
-## 2. Get your keys
-Dashboard → **Project Settings → API**. Copy:
-- **Project URL** (e.g. `https://abcd1234.supabase.co`)
-- **anon public** key (the long `eyJ…` string). This key is safe to ship in a
-  client app — Row Level Security protects the data.
+## 2. Get your keys — on **supabase.com** (NOT Vercel)
+> ⚠️ These live in the **Supabase** dashboard. The "API" section is **not** in
+> Vercel — on Vercel you only *paste* these values as env vars (step 5).
+
+Supabase dashboard → your project → **Project Settings → API**. Copy:
+- **Project URL** (e.g. `https://abcd1234.supabase.co`). If you only see the
+  Project ID, the URL is `https://<PROJECT_ID>.supabase.co`.
+- The **publishable** key (`sb_publishable_…`) under **API Keys**. This is the
+  new client key that **replaces the legacy "anon"** key — use the publishable
+  one. Both are client-safe (Row Level Security protects the data).
+
+> Never put the **secret** key (`sb_secret_…` / legacy `service_role`) in the
+> app or in `NEXT_PUBLIC_*` / `EXPO_PUBLIC_*` vars — that key bypasses RLS.
 
 ## 3. Turn on email code (OTP) login
 1. **Authentication → Providers → Email**: make sure it's **enabled** and
@@ -50,18 +58,24 @@ rows). Auth itself needs no tables — Supabase manages users for you.
 ## 5. Set the environment variables
 
 **Web** — create `apps/web/.env.local` (for local dev) and add the same two
-vars in **Vercel → Project → Settings → Environment Variables**:
+vars on **Vercel**. In the current Vercel UI: **Project → Settings →
+Environments → (Production, and also Preview/Development) → Environment
+Variables**. The value of the key var is the **publishable** key:
 
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://YOUR-PROJECT.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...your-anon-key...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_...your-publishable-key...
 ```
+
+(The var is named `…_ANON_KEY` for continuity, but the value is the publishable
+key. If you prefer, you can instead name it `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+— the app reads either.)
 
 **Mobile** — create `apps/mobile/.env` (and set the same in EAS build env):
 
 ```
 EXPO_PUBLIC_SUPABASE_URL=https://YOUR-PROJECT.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJ...your-anon-key...
+EXPO_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_...your-publishable-key...
 ```
 
 (`.env*` files are git‑ignored; only the `*.example` files are committed.)
