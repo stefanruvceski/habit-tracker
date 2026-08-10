@@ -80,6 +80,36 @@ describe("Dashboard page", () => {
     expect(getByText("Yearly dashboard")).toBeTruthy();
     expect(getByText("Finance")).toBeTruthy();
   });
+
+  test("shows measurable habit totals for the year", () => {
+    const y = new Date().getFullYear();
+    act(() =>
+      actions.addHabit({
+        name: "Water",
+        emoji: "💧",
+        color: "#60a5fa",
+        type: "build",
+        schedule: { type: "daily" },
+        goalType: "measurable",
+        target: 8,
+        unit: "glasses",
+      }),
+    );
+    // log a couple of amounts this year
+    act(() => {
+      const id = (
+        JSON.parse(localStorage.getItem("habit-tracker.v1")!).habits as {
+          id: string;
+          name: string;
+        }[]
+      ).find((h) => h.name === "Water")!.id;
+      actions.setAmount(id, `${y}-01-05`, 6);
+      actions.setAmount(id, `${y}-01-06`, 8);
+    });
+    const { getByText } = render(<DashboardPage />);
+    expect(getByText("Measured this year")).toBeTruthy();
+    expect(getByText("14")).toBeTruthy(); // 6 + 8 total (sum)
+  });
 });
 
 describe("Habits page", () => {
