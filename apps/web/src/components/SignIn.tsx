@@ -6,7 +6,7 @@ import { Card } from "./ui";
 
 /** Email → 6-digit code sign-in (registers on first use). */
 export function SignIn() {
-  const { sendCode, verifyCode } = useAuth();
+  const { sendCode, verifyCode, continueAsGuest } = useAuth();
   const [step, setStep] = useState<"email" | "code">("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -97,6 +97,18 @@ export function SignIn() {
         )}
 
         {error && <p className="text-sm text-red-400 mt-3 text-center">{error}</p>}
+
+        <div className="mt-5 pt-4 border-t border-border">
+          <button
+            onClick={continueAsGuest}
+            className="w-full text-sm text-text-dim py-1.5 hover:text-text transition-colors"
+          >
+            Continue as guest
+          </button>
+          <p className="text-[11px] text-text-faint text-center mt-1">
+            No sign-in — saved on this device only.
+          </p>
+        </div>
       </Card>
     </div>
   );

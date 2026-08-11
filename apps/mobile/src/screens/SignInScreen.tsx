@@ -5,7 +5,7 @@ import { C } from "../lib/theme";
 
 /** Email → 6-digit code sign-in (registers on first use). */
 export function SignInScreen() {
-  const { sendCode, verifyCode } = useAuth();
+  const { sendCode, verifyCode, continueAsGuest } = useAuth();
   const [step, setStep] = useState<"email" | "code">("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -91,6 +91,13 @@ export function SignInScreen() {
         )}
 
         {error && <Text style={styles.error}>{error}</Text>}
+
+        <View style={styles.guestWrap}>
+          <Pressable onPress={continueAsGuest} hitSlop={8}>
+            <Text style={styles.guestBtn}>Continue as guest</Text>
+          </Pressable>
+          <Text style={styles.guestHint}>No sign-in — saved on this device only.</Text>
+        </View>
       </View>
     </View>
   );
@@ -125,4 +132,14 @@ const styles = StyleSheet.create({
   btnText: { color: C.bg, fontWeight: "700", fontSize: 15 },
   link: { color: C.faint, fontSize: 13, textAlign: "center", paddingVertical: 4 },
   error: { color: C.danger, fontSize: 13, textAlign: "center" },
+  guestWrap: {
+    marginTop: 8,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: C.border,
+    alignItems: "center",
+    gap: 3,
+  },
+  guestBtn: { color: C.dim, fontSize: 14, fontWeight: "600", paddingVertical: 4 },
+  guestHint: { color: C.faint, fontSize: 11, textAlign: "center" },
 });

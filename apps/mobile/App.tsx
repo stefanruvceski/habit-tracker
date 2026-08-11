@@ -40,7 +40,7 @@ export default function App() {
 
 /** Gates the app behind sign-in when Supabase is configured; local-only otherwise. */
 function Gate() {
-  const { configured, loading, session } = useAuth();
+  const { configured, loading, session, guest } = useAuth();
   if (configured && loading) {
     return (
       <View style={[styles.root, { alignItems: "center", justifyContent: "center" }]}>
@@ -48,7 +48,7 @@ function Gate() {
       </View>
     );
   }
-  if (configured && !session) return <SignInScreen />;
+  if (configured && !session && !guest) return <SignInScreen />;
   return (
     <>
       {session && <CloudSync userId={session.user.id} />}

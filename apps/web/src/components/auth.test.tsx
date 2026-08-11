@@ -24,4 +24,15 @@ describe("auth (local-only mode)", () => {
     // Not configured → sendCode returns an error, stays on email step.
     await waitFor(() => expect(getByText("Auth not configured")).toBeTruthy());
   });
+
+  test("SignIn offers a guest option that doesn't crash when chosen", () => {
+    const { getByText } = render(
+      <AuthProvider>
+        <SignIn />
+      </AuthProvider>,
+    );
+    const guest = getByText("Continue as guest");
+    expect(guest).toBeTruthy();
+    fireEvent.click(guest);
+  });
 });
