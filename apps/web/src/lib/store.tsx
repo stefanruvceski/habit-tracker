@@ -267,6 +267,18 @@ export function useAppState(): AppState {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
+// ---- Sync helpers (used by the cloud sync layer) --------------------------
+
+/** Subscribe to any state change (returns an unsubscribe fn). */
+export function subscribeApp(cb: () => void): () => void {
+  return subscribe(cb);
+}
+
+/** Current AppState snapshot (non-hook). */
+export function appSnapshot(): AppState {
+  return state;
+}
+
 export function useHydrated(): boolean {
   return useSyncExternalStore(
     subscribe,

@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { AuthProvider, useAuth } from "../lib/auth";
 import { SignIn } from "./SignIn";
+import { CloudSync } from "./CloudSync";
 
 /**
  * Wraps the app in the auth provider. When Supabase is configured, it gates the
@@ -17,7 +18,7 @@ export function Providers({ children }: { children: ReactNode }) {
 }
 
 function AuthGate({ children }: { children: ReactNode }) {
-  const { configured, loading, session } = useAuth();
+  const { configured, loading, session, guest } = useAuth();
 
   if (!configured) return <>{children}</>; // local-only mode
   if (loading) {
@@ -27,6 +28,15 @@ function AuthGate({ children }: { children: ReactNode }) {
       </div>
     );
   }
-  if (!session) return <SignIn />;
-  return <>{children}</>;
+  if (session) {
+    return (
+      <>
+        <CloudSync userId={session.user.id} />
+        {children}
+      </>
+    );
+  }
+  // Guest: local-only, saved on this device, no cloud sync.
+  if (guest) return <>{children}</>;
+  return <SignIn />;
 }

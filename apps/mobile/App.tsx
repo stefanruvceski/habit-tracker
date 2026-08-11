@@ -10,6 +10,7 @@ import { HabitsScreen } from "./src/screens/HabitsScreen";
 import { FinanceScreen } from "./src/screens/FinanceScreen";
 import { SignInScreen } from "./src/screens/SignInScreen";
 import { AuthProvider, useAuth } from "./src/lib/auth";
+import { CloudSync } from "./src/components/CloudSync";
 import {
   TodayIcon,
   MonthIcon,
@@ -39,7 +40,7 @@ export default function App() {
 
 /** Gates the app behind sign-in when Supabase is configured; local-only otherwise. */
 function Gate() {
-  const { configured, loading, session } = useAuth();
+  const { configured, loading, session, guest } = useAuth();
   if (configured && loading) {
     return (
       <View style={[styles.root, { alignItems: "center", justifyContent: "center" }]}>
@@ -47,8 +48,13 @@ function Gate() {
       </View>
     );
   }
-  if (configured && !session) return <SignInScreen />;
-  return <Shell />;
+  if (configured && !session && !guest) return <SignInScreen />;
+  return (
+    <>
+      {session && <CloudSync userId={session.user.id} />}
+      <Shell />
+    </>
+  );
 }
 
 function Shell() {
