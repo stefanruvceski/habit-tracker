@@ -21,10 +21,8 @@ interface AuthValue {
   email: string | null;
   /** True when the user chose to skip sign-in and use the app on this device. */
   guest: boolean;
-  /** Send a 6-digit code to the email (registers on first use). */
-  sendCode: (email: string) => Promise<{ error: string | null }>;
-  /** Verify the emailed code and start a session. */
-  verifyCode: (email: string, code: string) => Promise<{ error: string | null }>;
+  /** Email a magic sign-in link (registers on first use). Clicking it signs in. */
+  sendMagicLink: (email: string) => Promise<{ error: string | null }>;
   /** Skip sign-in: use the app local-only, saved on this device (no cloud sync). */
   continueAsGuest: () => void;
   /** Leave guest mode so the sign-in screen shows again. */
@@ -68,20 +66,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session,
     email: session?.user?.email ?? null,
     guest,
-    async sendCode(email) {
+    async sendMagicLink(email) {
       if (!supabase) return { error: "Auth not configured" };
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim(),
-        options: { shouldCreateUser: true },
-      });
-      return { error: error?.message ?? null };
-    },
-    async verifyCode(email, code) {
-      if (!supabase) return { error: "Auth not configured" };
-      const { error } = await supabase.auth.verifyOtp({
-        email: email.trim(),
-        token: code.trim(),
-        type: "email",
+        options: {
+          shouldCreateUser: true,
+          // Come back to this app; supabase-js reads the session from the URL.
+          emailRedirectTo:
+            typeof window !== "undefined" ? window.location.origin : undefined,
+        },
       });
       return { error: error?.message ?? null };
     },
@@ -121,10 +115,7 @@ const LOCAL_ONLY: AuthValue = {
   session: null,
   email: null,
   guest: false,
-  async sendCode() {
-    return { error: "Auth not configured" };
-  },
-  async verifyCode() {
+  async sendMagicLink() {
     return { error: "Auth not configured" };
   },
   continueAsGuest() {},
