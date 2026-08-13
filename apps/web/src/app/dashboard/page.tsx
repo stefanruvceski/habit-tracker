@@ -16,6 +16,7 @@ import { MONTH_NAMES, MONTH_SHORT } from "@habit/core";
 import { useFinanceState, useFinanceHydrated } from "../../lib/financeStore";
 import { LineChart } from "../../components/LineChart";
 import { HabitGlyph } from "../../components/HabitGlyph";
+import { Insights } from "../../components/Insights";
 import { Card, PageHeader, ProgressRing, pct } from "../../components/ui";
 
 export default function DashboardPage() {
@@ -67,6 +68,9 @@ export default function DashboardPage() {
           </select>
         }
       />
+
+      {/* Automatic insights from the last 30 days */}
+      <Insights entries={state.entries} habits={habits} mental={state.mental} />
 
       {/* Finance at a glance */}
       <FinanceGlance year={year} />

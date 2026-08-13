@@ -3,14 +3,18 @@ import { View, Text, Pressable, ScrollView, StyleSheet, Dimensions } from "react
 import {
   MONTH_NAMES,
   MONTH_SHORT,
+  WEEKDAY_LONG,
   availableYears,
   yearSummary,
   financeKpis,
   isMeasurable,
   periodAmount,
   monthKeys,
+  bestWeekday,
+  consistencyRanking,
+  moodHabitLink,
 } from "@habit/core";
-import type { Habit, Entries } from "@habit/core";
+import type { Habit, Entries, Mental } from "@habit/core";
 import { useAppState, useHabits } from "../lib/store";
 import { useFinanceState, useFinanceHydrated } from "../lib/financeStore";
 import { C, pct } from "../lib/theme";
@@ -73,6 +77,8 @@ export function DashboardScreen({ onOpenFinance }: { onOpenFinance?: () => void 
         <Mini label="Active" value={`${activeMonths}/12`} />
       </View>
 
+      <Insights entries={state.entries} habits={habits} mental={state.mental} />
+
       <FinanceGlance year={year} onOpen={onOpenFinance} />
 
       <MeasurableTotals year={year} habits={habits} entries={state.entries} />
@@ -103,6 +109,85 @@ export function DashboardScreen({ onOpenFinance }: { onOpenFinance?: () => void 
         ))}
       </View>
     </ScrollView>
+  );
+}
+
+const INSIGHT_WINDOW = 30;
+
+/** Narrative insights from the last 30 days (mirrors the web Insights card). */
+function Insights({
+  entries,
+  habits,
+  mental,
+}: {
+  entries: Entries;
+  habits: Habit[];
+  mental: Mental;
+}) {
+  const items = useMemo(() => {
+    const out: { icon: string; text: string }[] = [];
+
+    const best = bestWeekday(entries, habits, INSIGHT_WINDOW);
+    if (best && best.progress > 0) {
+      out.push({
+        icon: "📅",
+        text: `${WEEKDAY_LONG[best.weekday]} is your strongest day — ${Math.round(best.progress * 100)}% on average.`,
+      });
+    }
+
+    const ranking = consistencyRanking(entries, habits, INSIGHT_WINDOW);
+    if (ranking.length > 0) {
+      const top = ranking[0];
+      out.push({
+        icon: "🏆",
+        text: `Most consistent: ${top.habit.name} — ${Math.round(top.rate * 100)}% of scheduled days.`,
+      });
+      const weakest = ranking[ranking.length - 1];
+      if (ranking.length > 1 && weakest.rate < 0.5 && weakest.rate < top.rate) {
+        out.push({
+          icon: "🌱",
+          text: `Needs attention: ${weakest.habit.name} — only ${Math.round(weakest.rate * 100)}% lately.`,
+        });
+      }
+    }
+
+    const link = moodHabitLink(entries, habits, mental, INSIGHT_WINDOW);
+    if (link && Math.abs(link.delta) >= 3) {
+      out.push(
+        link.delta > 0
+          ? {
+              icon: "😊",
+              text: `On days you complete more habits, your mood averages ${Math.round(link.delta)} pts higher.`,
+            }
+          : {
+              icon: "🤔",
+              text: "Your mood isn't higher on high-completion days lately.",
+            },
+      );
+    }
+
+    return out;
+  }, [entries, habits, mental]);
+
+  if (items.length === 0) return null;
+
+  return (
+    <Card>
+      <Text style={{ color: C.dim, fontSize: 13, fontWeight: "700", marginBottom: 10 }}>
+        Insights · last 30 days
+      </Text>
+      {items.map((it, i) => (
+        <View
+          key={i}
+          style={{ flexDirection: "row", gap: 10, alignItems: "flex-start", paddingVertical: 4 }}
+        >
+          <Text style={{ fontSize: 16 }}>{it.icon}</Text>
+          <Text style={{ color: C.text, fontSize: 13, flex: 1, lineHeight: 18 }}>
+            {it.text}
+          </Text>
+        </View>
+      ))}
+    </Card>
   );
 }
 
