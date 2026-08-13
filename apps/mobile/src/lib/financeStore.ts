@@ -1,6 +1,8 @@
 import { useSyncExternalStore } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
+  Expense,
+  ExpenseCategory,
   FINANCE_VERSION,
   FinanceState,
   FxProvider,
@@ -84,6 +86,9 @@ async function load() {
               ? parsed.levels
               : emptyFinanceState().levels,
           fxProvider: parsed.fxProvider ?? "general",
+          categories: parsed.categories ?? [],
+          expenses: parsed.expenses ?? [],
+          budgets: parsed.budgets ?? [],
         };
       }
     } else {
@@ -103,7 +108,12 @@ let fxRefreshing = false;
 
 function foreignCodes(s: FinanceState): string[] {
   return Array.from(
-    new Set(s.sources.map((x) => x.currency).filter((c) => c && c !== s.baseCurrency)),
+    new Set(
+      [
+        ...s.sources.map((x) => x.currency),
+        ...(s.expenses ?? []).map((x) => x.currency),
+      ].filter((c) => c && c !== s.baseCurrency),
+    ),
   );
 }
 
@@ -167,6 +177,26 @@ async function lockTxRate(id: string, currency: string, date: string) {
         ...s,
         transactions: s.transactions.map((t) =>
           t.id === id ? { ...t, fxRate: rate, fxRateDate: date } : t,
+        ),
+      }));
+    }
+  } catch {
+    // keep live-rate fallback
+  }
+}
+
+/** Lock the historical FX rate onto an expense (mirrors lockTxRate). */
+async function lockExpenseRate(id: string, currency: string, date: string) {
+  if (currency === state.baseCurrency) return;
+  try {
+    const rate = await fetchFxRateOn(state.baseCurrency, currency, date, {
+      provider: state.fxProvider,
+    });
+    if (rate && rate > 0) {
+      setState((s) => ({
+        ...s,
+        expenses: (s.expenses ?? []).map((e) =>
+          e.id === id ? { ...e, fxRate: rate, fxRateDate: date } : e,
         ),
       }));
     }
@@ -296,10 +326,18 @@ export const financeActions = {
         fxRate: undefined,
         fxRateDate: undefined,
       })),
+      expenses: (s.expenses ?? []).map((e) => ({
+        ...e,
+        fxRate: undefined,
+        fxRateDate: undefined,
+      })),
     }));
     void refreshFx(true);
     for (const t of state.transactions) {
       if (t.currency !== code) void lockTxRate(t.id, t.currency, t.date);
+    }
+    for (const e of state.expenses ?? []) {
+      if (e.currency !== code) void lockExpenseRate(e.id, e.currency, e.date);
     }
   },
 
@@ -338,15 +376,97 @@ export const financeActions = {
         fxRate: undefined,
         fxRateDate: undefined,
       })),
+      expenses: (s.expenses ?? []).map((e) => ({
+        ...e,
+        fxRate: undefined,
+        fxRateDate: undefined,
+      })),
     }));
     void refreshFx(true);
     for (const t of state.transactions) {
       if (t.currency !== state.baseCurrency) void lockTxRate(t.id, t.currency, t.date);
     }
+    for (const e of state.expenses ?? []) {
+      if (e.currency !== state.baseCurrency) void lockExpenseRate(e.id, e.currency, e.date);
+    }
   },
 
   setLevels(levels: LevelTier[]) {
     setState((s) => ({ ...s, levels }));
+  },
+
+  // ---- Expense categories --------------------------------------------------
+
+  addCategory(input: Omit<ExpenseCategory, "id" | "order" | "archived" | "createdAt">) {
+    setState((s) => {
+      const cats = s.categories ?? [];
+      const order = cats.length ? Math.max(...cats.map((c) => c.order)) + 1 : 0;
+      const cat: ExpenseCategory = {
+        ...input,
+        id: newFinanceId("cat"),
+        order,
+        archived: false,
+        createdAt: new Date().toISOString(),
+      };
+      return { ...s, categories: [...cats, cat] };
+    });
+  },
+
+  updateCategory(id: string, patch: Partial<ExpenseCategory>) {
+    setState((s) => ({
+      ...s,
+      categories: (s.categories ?? []).map((c) => (c.id === id ? { ...c, ...patch } : c)),
+    }));
+  },
+
+  deleteCategory(id: string) {
+    setState((s) => ({
+      ...s,
+      categories: (s.categories ?? []).filter((c) => c.id !== id),
+      expenses: (s.expenses ?? []).filter((e) => e.categoryId !== id),
+      budgets: (s.budgets ?? []).filter((b) => b.categoryId !== id),
+    }));
+  },
+
+  // ---- Expenses ------------------------------------------------------------
+
+  addExpense(input: Omit<Expense, "id" | "createdAt">) {
+    const exp: Expense = {
+      ...input,
+      id: newFinanceId("exp"),
+      createdAt: new Date().toISOString(),
+    };
+    setState((s) => ({ ...s, expenses: [...(s.expenses ?? []), exp] }));
+    void lockExpenseRate(exp.id, exp.currency, exp.date);
+  },
+
+  updateExpense(id: string, patch: Partial<Expense>) {
+    setState((s) => ({
+      ...s,
+      expenses: (s.expenses ?? []).map((e) => (e.id === id ? { ...e, ...patch } : e)),
+    }));
+    if (patch.date || patch.currency) {
+      const e = (state.expenses ?? []).find((x) => x.id === id);
+      if (e) void lockExpenseRate(id, e.currency, e.date);
+    }
+  },
+
+  deleteExpense(id: string) {
+    setState((s) => ({
+      ...s,
+      expenses: (s.expenses ?? []).filter((e) => e.id !== id),
+    }));
+  },
+
+  // ---- Budgets -------------------------------------------------------------
+
+  /** Set (or clear, with limit <= 0) a category's monthly limit in base currency. */
+  setBudget(categoryId: string, monthlyLimit: number) {
+    setState((s) => {
+      const rest = (s.budgets ?? []).filter((b) => b.categoryId !== categoryId);
+      if (!(monthlyLimit > 0)) return { ...s, budgets: rest };
+      return { ...s, budgets: [...rest, { categoryId, monthlyLimit }] };
+    });
   },
 
   importFinance(next: FinanceState) {
@@ -358,6 +478,10 @@ export const financeActions = {
       fxRates: next.fxRates ?? [],
       goal: next.goal ?? { target: 0, direction: "reach" },
       levels: next.levels ?? emptyFinanceState().levels,
+      fxProvider: next.fxProvider ?? "general",
+      categories: next.categories ?? [],
+      expenses: next.expenses ?? [],
+      budgets: next.budgets ?? [],
     }));
   },
 };

@@ -176,4 +176,51 @@ describe("finance store", () => {
     act(() => financeActions.setFxProvider("nbs"));
     expect(result.current.fxProvider).toBe("nbs");
   });
+
+  test("category + expense + budget lifecycle", () => {
+    const { result } = renderHook(() => useFinanceState());
+
+    act(() => financeActions.addCategory({ name: "Groceries", color: "#f59e0b" }));
+    const cat = result.current.categories!.at(-1)!;
+    expect(cat.name).toBe("Groceries");
+
+    act(() =>
+      financeActions.addExpense({
+        categoryId: cat.id,
+        amount: 1500,
+        currency: "RSD",
+        date: "2026-08-10",
+      }),
+    );
+    expect(result.current.expenses!.length).toBe(1);
+
+    act(() => financeActions.setBudget(cat.id, 5000));
+    expect(result.current.budgets!.find((b) => b.categoryId === cat.id)!.monthlyLimit).toBe(
+      5000,
+    );
+
+    // setBudget(<=0) clears the limit
+    act(() => financeActions.setBudget(cat.id, 0));
+    expect(result.current.budgets!.find((b) => b.categoryId === cat.id)).toBeUndefined();
+  });
+
+  test("deleteCategory drops its expenses and budget", () => {
+    const { result } = renderHook(() => useFinanceState());
+    act(() => financeActions.addCategory({ name: "Transport", color: "#60a5fa" }));
+    const cat = result.current.categories!.at(-1)!;
+    act(() =>
+      financeActions.addExpense({
+        categoryId: cat.id,
+        amount: 300,
+        currency: "RSD",
+        date: "2026-08-05",
+      }),
+    );
+    act(() => financeActions.setBudget(cat.id, 2000));
+
+    act(() => financeActions.deleteCategory(cat.id));
+    expect(result.current.categories!.find((c) => c.id === cat.id)).toBeUndefined();
+    expect(result.current.expenses!.filter((e) => e.categoryId === cat.id)).toHaveLength(0);
+    expect(result.current.budgets!.filter((b) => b.categoryId === cat.id)).toHaveLength(0);
+  });
 });
