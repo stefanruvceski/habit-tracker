@@ -19,7 +19,12 @@ export const supabase: SupabaseClient | null = supabaseConfigured
       auth: {
         persistSession: true,
         autoRefreshToken: true,
-        detectSessionInUrl: false, // we use the OTP code flow, not magic links
+        // Magic-link flow: on the redirect back, supabase-js reads the session
+        // from the URL and signs the user in. Implicit flow (tokens in the URL
+        // hash) so the link also works when opened in a different browser than
+        // the one that requested it — common for links opened from a mail app.
+        detectSessionInUrl: true,
+        flowType: "implicit",
       },
     })
   : null;
