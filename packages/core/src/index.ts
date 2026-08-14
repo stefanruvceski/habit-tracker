@@ -7,3 +7,4 @@ export * from "./icons";
 export * from "./finance";
 export * from "./todos";
 export * from "./insights";
+export * from "./user";
