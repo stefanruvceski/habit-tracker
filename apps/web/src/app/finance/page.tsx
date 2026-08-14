@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Budgets } from "../../components/Budgets";
 import {
   MONTH_SHORT,
   financeKpis,
@@ -267,6 +268,9 @@ export default function FinancePage() {
           </div>
         </Card>
       )}
+
+      {/* Monthly budgets & expenses */}
+      <Budgets year={year} />
 
       {/* Recent transactions */}
       <RecentTransactions />

@@ -109,6 +109,39 @@ export interface LevelTier {
   min: number; // base-currency threshold, inclusive
 }
 
+/** A spending category (groceries, rent, transport, …). */
+export interface ExpenseCategory {
+  id: string;
+  name: string;
+  color: string; // hex, used in charts/legend
+  icon?: string; // built-in icon id (see icons.ts)
+  emoji?: string; // fallback glyph when no built-in icon matches
+  order: number;
+  archived: boolean;
+  createdAt: string; // ISO
+}
+
+/** A single expense — always a positive amount in `currency`. */
+export interface Expense {
+  id: string;
+  categoryId: string;
+  date: string; // YYYY-MM-DD (local)
+  amount: number; // in `currency`, always positive
+  currency: CurrencyCode;
+  note?: string;
+  createdAt: string; // ISO
+  /** Base-currency units per 1 unit of `currency`, locked at the expense date. */
+  fxRate?: number;
+  fxRateDate?: string;
+}
+
+/** A monthly spending limit for a category, in base currency. */
+export interface Budget {
+  categoryId: string;
+  /** Base-currency monthly cap. <= 0 means "track only, no limit". */
+  monthlyLimit: number;
+}
+
 export interface FinanceState {
   version: number;
   baseCurrency: CurrencyCode;
@@ -121,9 +154,15 @@ export interface FinanceState {
   levels: LevelTier[];
   /** Exchange-rate source (defaults to "general" when absent). */
   fxProvider?: FxProvider;
+  /** Spending categories (added in v2; treat as [] when absent). */
+  categories?: ExpenseCategory[];
+  /** Expenses (added in v2; treat as [] when absent). */
+  expenses?: Expense[];
+  /** Per-category monthly budgets (added in v2; treat as [] when absent). */
+  budgets?: Budget[];
 }
 
-export const FINANCE_VERSION = 1;
+export const FINANCE_VERSION = 2;
 
 /** Neutral, non-judgemental default level names. */
 export const DEFAULT_LEVELS: LevelTier[] = [
@@ -144,6 +183,9 @@ export function emptyFinanceState(baseCurrency: CurrencyCode = "RSD"): FinanceSt
     goal: { target: 0, direction: "reach" },
     levels: DEFAULT_LEVELS,
     fxProvider: "general",
+    categories: [],
+    expenses: [],
+    budgets: [],
   };
 }
 
@@ -172,6 +214,124 @@ export function txBase(state: FinanceState, tx: Transaction): number {
   if (tx.currency === state.baseCurrency) return tx.amount;
   if (typeof tx.fxRate === "number" && tx.fxRate > 0) return tx.amount * tx.fxRate;
   return toBase(state, tx.amount, tx.currency);
+}
+
+/**
+ * Amount of a single expense expressed in the base currency. Prefers the rate
+ * locked on the expense (historical); otherwise uses the current live/manual
+ * rate. Mirrors `txBase`.
+ */
+export function expenseBase(state: FinanceState, exp: Expense): number {
+  if (exp.currency === state.baseCurrency) return exp.amount;
+  if (typeof exp.fxRate === "number" && exp.fxRate > 0) return exp.amount * exp.fxRate;
+  return toBase(state, exp.amount, exp.currency);
+}
+
+// ---------------------------------------------------------------------------
+// Budgets & expenses
+// ---------------------------------------------------------------------------
+
+/** Total base-currency spending for a month (all categories). */
+export function monthExpenseTotal(
+  state: FinanceState,
+  year: number,
+  month: number,
+): number {
+  let sum = 0;
+  for (const e of state.expenses ?? []) {
+    if (Number(e.date.slice(0, 4)) !== year) continue;
+    if (Number(e.date.slice(5, 7)) - 1 !== month) continue;
+    sum += expenseBase(state, e);
+  }
+  return sum;
+}
+
+/** Base-currency spending for one category in a month. */
+export function categoryMonthTotal(
+  state: FinanceState,
+  year: number,
+  month: number,
+  categoryId: string,
+): number {
+  let sum = 0;
+  for (const e of state.expenses ?? []) {
+    if (e.categoryId !== categoryId) continue;
+    if (Number(e.date.slice(0, 4)) !== year) continue;
+    if (Number(e.date.slice(5, 7)) - 1 !== month) continue;
+    sum += expenseBase(state, e);
+  }
+  return sum;
+}
+
+/** The base-currency monthly limit for a category (0 when none set). */
+export function budgetFor(state: FinanceState, categoryId: string): number {
+  const b = (state.budgets ?? []).find((x) => x.categoryId === categoryId);
+  return b && b.monthlyLimit > 0 ? b.monthlyLimit : 0;
+}
+
+export interface CategorySpend {
+  category: ExpenseCategory;
+  spent: number; // base currency, this month
+  limit: number; // base currency, 0 = no limit
+  /** spent / limit (0 when there's no limit). */
+  ratio: number;
+  /** limit − spent (negative when over). Only meaningful when limit > 0. */
+  remaining: number;
+  over: boolean;
+}
+
+/**
+ * Per-category spending vs budget for a month. Includes every non-archived
+ * category that has a budget or any spending this month, sorted by spend (desc).
+ */
+export function budgetStatus(
+  state: FinanceState,
+  year: number,
+  month: number,
+): CategorySpend[] {
+  const out: CategorySpend[] = [];
+  for (const category of state.categories ?? []) {
+    if (category.archived) continue;
+    const spent = categoryMonthTotal(state, year, month, category.id);
+    const limit = budgetFor(state, category.id);
+    if (spent <= 0 && limit <= 0) continue;
+    out.push({
+      category,
+      spent,
+      limit,
+      ratio: limit > 0 ? spent / limit : 0,
+      remaining: limit - spent,
+      over: limit > 0 && spent > limit,
+    });
+  }
+  return out.sort((a, b) => b.spent - a.spent);
+}
+
+export interface MonthBudgetSummary {
+  totalSpent: number; // base currency
+  totalBudget: number; // base currency (sum of category limits)
+  ratio: number; // totalSpent / totalBudget (0 when no budgets)
+  overCount: number; // categories over their limit
+}
+
+/** Month-level roll-up of spending against the sum of category budgets. */
+export function monthBudgetSummary(
+  state: FinanceState,
+  year: number,
+  month: number,
+): MonthBudgetSummary {
+  const status = budgetStatus(state, year, month);
+  const totalSpent = monthExpenseTotal(state, year, month);
+  const totalBudget = (state.budgets ?? []).reduce(
+    (s, b) => s + (b.monthlyLimit > 0 ? b.monthlyLimit : 0),
+    0,
+  );
+  return {
+    totalSpent,
+    totalBudget,
+    ratio: totalBudget > 0 ? totalSpent / totalBudget : 0,
+    overCount: status.filter((c) => c.over).length,
+  };
 }
 
 // ---------------------------------------------------------------------------

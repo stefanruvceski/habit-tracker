@@ -9,12 +9,17 @@ import {
 } from "react-native";
 import {
   MONTH_SHORT,
+  MONTH_NAMES,
+  PALETTE,
   financeKpis,
   financeYears,
   monthTotals,
   sourceDistribution,
   todayKey,
   txBase,
+  budgetFor,
+  budgetStatus,
+  monthBudgetSummary,
   SUPPORTED_CURRENCIES,
 } from "@habit/core";
 import {
@@ -229,6 +234,9 @@ export function FinanceScreen() {
           ))}
         </Card>
       )}
+
+      {/* Monthly budgets & expenses */}
+      <Budgets year={year} />
 
       {/* Recent transactions */}
       <RecentTransactions />
@@ -486,6 +494,280 @@ function CurrencyChips({
         </Pressable>
       ))}
     </View>
+  );
+}
+
+function Budgets({ year }: { year: number }) {
+  const state = useFinanceState();
+  const now = new Date();
+  const [month, setMonth] = useState(
+    year === now.getFullYear() ? now.getMonth() : 0,
+  );
+  const base = state.baseCurrency;
+  const status = useMemo(() => budgetStatus(state, year, month), [state, year, month]);
+  const summary = useMemo(
+    () => monthBudgetSummary(state, year, month),
+    [state, year, month],
+  );
+
+  return (
+    <Card>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <Text style={styles.sectionTitle}>Budgets</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <Pressable onPress={() => setMonth((m) => (m + 11) % 12)} hitSlop={8}>
+            <Text style={{ color: C.text, fontSize: 18 }}>‹</Text>
+          </Pressable>
+          <Text style={{ color: C.text, fontSize: 13, fontWeight: "600", width: 68, textAlign: "center" }}>
+            {MONTH_NAMES[month]}
+          </Text>
+          <Pressable onPress={() => setMonth((m) => (m + 1) % 12)} hitSlop={8}>
+            <Text style={{ color: C.text, fontSize: 18 }}>›</Text>
+          </Pressable>
+        </View>
+      </View>
+
+      {/* Month roll-up */}
+      <View style={{ marginBottom: 12 }}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
+          <Text style={{ color: C.dim, fontSize: 13 }}>Spent {fmtMoney(summary.totalSpent, base)}</Text>
+          {summary.totalBudget > 0 && (
+            <Text style={{ color: C.faint, fontSize: 13 }}>of {fmtMoney(summary.totalBudget, base)}</Text>
+          )}
+        </View>
+        {summary.totalBudget > 0 && (
+          <Bar value={summary.ratio} color={summary.overCount > 0 ? C.danger : C.accent} />
+        )}
+        {summary.overCount > 0 && (
+          <Text style={{ color: C.danger, fontSize: 12, marginTop: 4 }}>
+            ⚠ {summary.overCount} over budget
+          </Text>
+        )}
+      </View>
+
+      {status.length === 0 ? (
+        <Text style={{ color: C.faint, fontSize: 13, marginBottom: 10 }}>
+          No spending or budgets this month yet.
+        </Text>
+      ) : (
+        <View style={{ gap: 10, marginBottom: 12 }}>
+          {status.map((c) => (
+            <View key={c.category.id}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flex: 1 }}>
+                  <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: c.category.color }} />
+                  <Text style={{ color: C.text, fontSize: 13 }} numberOfLines={1}>
+                    {c.category.name}
+                  </Text>
+                </View>
+                <Text style={{ color: c.over ? C.danger : C.dim, fontSize: 12 }}>
+                  {fmtMoney(c.spent, base)}
+                  {c.limit > 0 ? ` / ${fmtMoney(c.limit, base)}` : ""}
+                </Text>
+              </View>
+              {c.limit > 0 && (
+                <Bar value={c.ratio} color={c.over ? C.danger : c.category.color} />
+              )}
+            </View>
+          ))}
+        </View>
+      )}
+
+      <BudgetControls month={month} year={year} />
+    </Card>
+  );
+}
+
+function BudgetControls({ month, year }: { month: number; year: number }) {
+  const state = useFinanceState();
+  const categories = (state.categories ?? []).filter((c) => !c.archived);
+  const [mode, setMode] = useState<"none" | "expense" | "categories">("none");
+
+  // Add-expense fields
+  const [categoryId, setCategoryId] = useState(categories[0]?.id ?? "");
+  const [amount, setAmount] = useState("");
+  const [currency, setCurrency] = useState(state.baseCurrency);
+  const mm = String(month + 1).padStart(2, "0");
+  const [date, setDate] = useState(
+    `${year}-${mm}-${String(new Date().getDate()).padStart(2, "0")}`,
+  );
+  const [note, setNote] = useState("");
+
+  // Add-category fields
+  const [catName, setCatName] = useState("");
+  const [catColor, setCatColor] = useState(PALETTE[0]);
+
+  function submitExpense() {
+    const value = parseFloat(amount.replace(",", "."));
+    const cid = categoryId || categories[0]?.id;
+    if (!cid || !Number.isFinite(value) || value <= 0) return;
+    financeActions.addExpense({
+      categoryId: cid,
+      amount: value,
+      currency,
+      date,
+      note: note.trim() || undefined,
+    });
+    setAmount("");
+    setNote("");
+    setMode("none");
+  }
+
+  return (
+    <View style={{ gap: 8 }}>
+      {mode === "expense" && categories.length > 0 && (
+        <View style={{ gap: 6 }}>
+          <Text style={styles.fieldLabel}>CATEGORY</Text>
+          <View style={styles.chipRow}>
+            {categories.map((c) => (
+              <Pressable
+                key={c.id}
+                onPress={() => setCategoryId(c.id)}
+                style={[styles.chip, categoryId === c.id && styles.chipOn]}
+              >
+                <Text style={{ color: categoryId === c.id ? C.bg : C.dim, fontSize: 13, fontWeight: "600" }}>
+                  {c.name}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          <Text style={styles.fieldLabel}>AMOUNT</Text>
+          <TextInput
+            value={amount}
+            onChangeText={setAmount}
+            keyboardType="decimal-pad"
+            placeholder="0"
+            placeholderTextColor={C.faint}
+            style={styles.input}
+          />
+          <Text style={styles.fieldLabel}>CURRENCY</Text>
+          <CurrencyChips value={currency} onChange={setCurrency} />
+          <Text style={styles.fieldLabel}>DATE</Text>
+          <TextInput
+            value={date}
+            onChangeText={setDate}
+            placeholder="YYYY-MM-DD"
+            placeholderTextColor={C.faint}
+            style={styles.input}
+          />
+          <Text style={styles.fieldLabel}>NOTE (OPTIONAL)</Text>
+          <TextInput
+            value={note}
+            onChangeText={setNote}
+            placeholder="e.g. weekly shop"
+            placeholderTextColor={C.faint}
+            style={styles.input}
+          />
+          <Pressable style={styles.saveBtn} onPress={submitExpense}>
+            <Text style={{ color: C.bg, fontWeight: "700", fontSize: 15 }}>Save expense</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {mode === "categories" && (
+        <View style={{ gap: 8 }}>
+          {categories.map((c) => (
+            <View key={c.id} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: c.color }} />
+              <Text style={{ color: C.text, fontSize: 13, flex: 1 }} numberOfLines={1}>
+                {c.name}
+              </Text>
+              <LimitInput categoryId={c.id} current={budgetFor(state, c.id)} base={state.baseCurrency} />
+              <Pressable onPress={() => financeActions.deleteCategory(c.id)} hitSlop={8}>
+                <Text style={{ color: C.faint, fontSize: 16 }}>✕</Text>
+              </Pressable>
+            </View>
+          ))}
+          <Text style={styles.fieldLabel}>NEW CATEGORY</Text>
+          <TextInput
+            value={catName}
+            onChangeText={setCatName}
+            placeholder="e.g. Groceries"
+            placeholderTextColor={C.faint}
+            style={styles.input}
+          />
+          <View style={styles.chipRow}>
+            {PALETTE.map((col) => (
+              <Pressable
+                key={col}
+                onPress={() => setCatColor(col)}
+                style={{
+                  width: 26,
+                  height: 26,
+                  borderRadius: 13,
+                  backgroundColor: col,
+                  borderWidth: catColor === col ? 2 : 0,
+                  borderColor: C.text,
+                }}
+              />
+            ))}
+          </View>
+          <Pressable
+            style={styles.saveBtn}
+            onPress={() => {
+              if (!catName.trim()) return;
+              financeActions.addCategory({ name: catName.trim(), color: catColor });
+              setCatName("");
+            }}
+          >
+            <Text style={{ color: C.bg, fontWeight: "700", fontSize: 15 }}>Add category</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {mode === "none" && (
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          <Pressable
+            style={[styles.addBtn, { flex: 1 }]}
+            onPress={() => {
+              if (categories.length === 0) {
+                setMode("categories");
+                return;
+              }
+              setCategoryId(categories[0].id);
+              setMode("expense");
+            }}
+          >
+            <Text style={{ color: C.dim, fontSize: 14, fontWeight: "600" }}>+ Add expense</Text>
+          </Pressable>
+          <Pressable style={[styles.addBtn, { flex: 1 }]} onPress={() => setMode("categories")}>
+            <Text style={{ color: C.dim, fontSize: 14, fontWeight: "600" }}>Categories</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {mode !== "none" && (
+        <Pressable onPress={() => setMode("none")} style={{ alignItems: "center", paddingVertical: 4 }}>
+          <Text style={{ color: C.faint, fontSize: 13 }}>Done</Text>
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
+function LimitInput({
+  categoryId,
+  current,
+  base,
+}: {
+  categoryId: string;
+  current: number;
+  base: string;
+}) {
+  const [value, setValue] = useState(current > 0 ? String(current) : "");
+  return (
+    <TextInput
+      value={value}
+      onChangeText={setValue}
+      onEndEditing={() => {
+        const n = parseFloat(value.replace(",", "."));
+        financeActions.setBudget(categoryId, Number.isFinite(n) ? n : 0);
+      }}
+      keyboardType="decimal-pad"
+      placeholder={`limit ${base}`}
+      placeholderTextColor={C.faint}
+      style={[styles.input, { width: 110, paddingVertical: 6, textAlign: "right" }]}
+    />
   );
 }
 

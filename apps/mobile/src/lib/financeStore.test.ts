@@ -129,4 +129,51 @@ describe("mobile finance store", () => {
     await flush();
     expect((await persisted()).fxProvider).toBe("nbs");
   });
+
+  test("category + expense + budget lifecycle persists", async () => {
+    financeActions.addCategory({ name: "Groceries", color: "#f59e0b" });
+    await flush();
+    const cat = (await persisted()).categories!.at(-1)!;
+    expect(cat.name).toBe("Groceries");
+
+    financeActions.addExpense({
+      categoryId: cat.id,
+      amount: 1500,
+      currency: "RSD",
+      date: "2026-08-10",
+    });
+    await flush();
+    expect((await persisted()).expenses!.length).toBe(1);
+
+    financeActions.setBudget(cat.id, 5000);
+    await flush();
+    expect((await persisted()).budgets!.find((b) => b.categoryId === cat.id)!.monthlyLimit).toBe(
+      5000,
+    );
+
+    financeActions.setBudget(cat.id, 0); // clears
+    await flush();
+    expect((await persisted()).budgets!.find((b) => b.categoryId === cat.id)).toBeUndefined();
+  });
+
+  test("deleteCategory drops its expenses and budget", async () => {
+    financeActions.addCategory({ name: "Transport", color: "#60a5fa" });
+    await flush();
+    const cat = (await persisted()).categories!.at(-1)!;
+    financeActions.addExpense({
+      categoryId: cat.id,
+      amount: 300,
+      currency: "RSD",
+      date: "2026-08-05",
+    });
+    financeActions.setBudget(cat.id, 2000);
+    await flush();
+
+    financeActions.deleteCategory(cat.id);
+    await flush();
+    const s = await persisted();
+    expect(s.categories!.find((c) => c.id === cat.id)).toBeUndefined();
+    expect(s.expenses!.filter((e) => e.categoryId === cat.id)).toHaveLength(0);
+    expect(s.budgets!.filter((b) => b.categoryId === cat.id)).toHaveLength(0);
+  });
 });
