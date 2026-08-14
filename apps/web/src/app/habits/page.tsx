@@ -11,7 +11,6 @@ import {
 import { AppState, Habit } from "@habit/core";
 import { bestStreak, currentStreak, isDoneOn, isScheduled } from "@habit/core";
 import { HabitForm, HabitDraft } from "../../components/HabitForm";
-import { AccountCard } from "../../components/AccountCard";
 import { Heatmap, CellState } from "../../components/Heatmap";
 import { Card, PageHeader } from "../../components/ui";
 import { HabitGlyph } from "../../components/HabitGlyph";
@@ -97,7 +96,6 @@ export default function HabitsPage() {
       </div>
 
       <BackupCard />
-      <AccountCard />
 
       {(creating || editing) && (
         <HabitForm
