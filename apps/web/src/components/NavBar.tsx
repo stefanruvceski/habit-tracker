@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ComponentType } from "react";
 import { TodayIcon, MonthIcon, YearIcon, HabitsIcon, FinanceIcon } from "./icons";
+import { useAuth } from "../lib/auth";
+import { AccountMenu } from "./AccountMenu";
 
 const TABS: {
   href: string;
@@ -19,12 +21,16 @@ const TABS: {
 
 export function NavBar() {
   const pathname = usePathname();
+  const { configured, session, guest } = useAuth();
+  const showAccount = configured && (!!session || guest);
   return (
     <nav
       className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-bg-elev/95 backdrop-blur"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
-      <div className="max-w-5xl mx-auto grid grid-cols-5">
+      <div
+        className={`max-w-5xl mx-auto grid ${showAccount ? "grid-cols-6" : "grid-cols-5"}`}
+      >
         {TABS.map(({ href, label, Icon }) => {
           const active =
             href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -41,6 +47,7 @@ export function NavBar() {
             </Link>
           );
         })}
+        {showAccount && <AccountMenu />}
       </div>
     </nav>
   );

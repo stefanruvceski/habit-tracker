@@ -11,6 +11,7 @@ import { FinanceScreen } from "./src/screens/FinanceScreen";
 import { SignInScreen } from "./src/screens/SignInScreen";
 import { AuthProvider, useAuth } from "./src/lib/auth";
 import { CloudSync } from "./src/components/CloudSync";
+import { AccountMenu } from "./src/components/AccountMenu";
 import {
   TodayIcon,
   MonthIcon,
@@ -60,6 +61,8 @@ function Gate() {
 function Shell() {
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("today");
   const Active = TABS.find((t) => t.key === tab)!.Screen;
+  const { configured, session, guest } = useAuth();
+  const showAccount = configured && (!!session || guest);
   return (
     <SafeAreaView style={styles.root} edges={["top", "left", "right"]}>
       <View style={{ flex: 1 }}>
@@ -81,6 +84,7 @@ function Shell() {
             </Pressable>
           );
         })}
+        {showAccount && <AccountMenu />}
       </View>
     </SafeAreaView>
   );

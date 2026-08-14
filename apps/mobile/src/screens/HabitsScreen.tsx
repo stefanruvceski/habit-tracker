@@ -8,7 +8,6 @@ import { Heatmap, CellState } from "../components/Heatmap";
 import { HabitGlyph } from "../components/HabitGlyph";
 import { HabitForm, HabitDraft } from "../components/HabitForm";
 import { RemindersCard } from "../components/RemindersCard";
-import { AccountCard } from "../components/AccountCard";
 
 export function HabitsScreen() {
   const state = useAppState();
@@ -107,8 +106,6 @@ export function HabitsScreen() {
           <Text style={{ color: C.dim }}>No habits yet. Tap “+ New”.</Text>
         </Card>
       )}
-
-      <AccountCard />
 
       <HabitForm
         visible={creating || !!editing}
