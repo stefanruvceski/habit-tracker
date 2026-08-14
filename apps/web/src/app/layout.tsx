@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { NavBar } from "../components/NavBar";
 import { Providers } from "../components/Providers";
-import { AccountMenu } from "../components/AccountMenu";
 
 export const metadata: Metadata = {
   title: "Habit Tracker",
@@ -35,9 +34,6 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <Providers>
           <div className="flex-1 w-full max-w-5xl mx-auto px-3 sm:px-5 pb-28 pt-4">
-            <div className="flex justify-end mb-2 empty:hidden">
-              <AccountMenu />
-            </div>
             {children}
           </div>
           <NavBar />

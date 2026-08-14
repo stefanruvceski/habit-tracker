@@ -5,9 +5,9 @@ import { useAuth } from "../lib/auth";
 import { C } from "../lib/theme";
 
 /**
- * Account avatar (initials circle) that opens a small menu: signed in shows the
- * email + Sign out; guest offers Sign in to sync. Renders nothing in local-only
- * mode or on the sign-in screen.
+ * Account entry for the bottom tab bar: an initials avatar + "Account" label
+ * that opens a small menu (email + Sign out; guests get Sign in to sync).
+ * Renders nothing in local-only mode or on the sign-in screen.
  */
 export function AccountMenu() {
   const { configured, session, email, guest, signOut, exitGuest } = useAuth();
@@ -21,14 +21,13 @@ export function AccountMenu() {
 
   return (
     <>
-      <Pressable
-        onPress={() => setOpen(true)}
-        style={[styles.avatar, isGuest ? styles.avatarGuest : styles.avatarUser]}
-        accessibilityLabel="Account"
-      >
-        <Text style={{ color: isGuest ? C.dim : C.bg, fontWeight: "800", fontSize: 13 }}>
-          {label}
-        </Text>
+      <Pressable style={styles.tab} onPress={() => setOpen(true)} accessibilityLabel="Account">
+        <View style={[styles.avatar, isGuest ? styles.avatarGuest : styles.avatarUser]}>
+          <Text style={{ color: isGuest ? C.dim : C.bg, fontWeight: "800", fontSize: 11 }}>
+            {label}
+          </Text>
+        </View>
+        <Text style={{ color: C.faint, fontSize: 11, fontWeight: "600" }}>Account</Text>
       </Pressable>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
@@ -66,10 +65,11 @@ export function AccountMenu() {
 }
 
 const styles = StyleSheet.create({
+  tab: { flex: 1, alignItems: "center", gap: 2, paddingVertical: 4 },
   avatar: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -78,12 +78,11 @@ const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.4)",
-    alignItems: "flex-end",
-    paddingTop: 60,
-    paddingHorizontal: 12,
+    justifyContent: "flex-end",
+    padding: 16,
+    paddingBottom: 90,
   },
   card: {
-    width: 240,
     backgroundColor: C.elev,
     borderRadius: 14,
     borderWidth: 1,
@@ -94,5 +93,5 @@ const styles = StyleSheet.create({
   kicker: { color: C.faint, fontSize: 10, letterSpacing: 0.5, fontWeight: "700" },
   email: { color: C.text, fontSize: 14, marginTop: 2 },
   divider: { height: 1, backgroundColor: C.border, marginVertical: 10, marginHorizontal: -16 },
-  action: { fontSize: 15, fontWeight: "600", color: C.text, paddingVertical: 4 },
+  action: { fontSize: 15, fontWeight: "600", color: C.text, paddingVertical: 6 },
 });

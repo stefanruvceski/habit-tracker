@@ -65,11 +65,6 @@ function Shell() {
   const showAccount = configured && (!!session || guest);
   return (
     <SafeAreaView style={styles.root} edges={["top", "left", "right"]}>
-      {showAccount && (
-        <View style={styles.topBar}>
-          <AccountMenu />
-        </View>
-      )}
       <View style={{ flex: 1 }}>
         {tab === "year" ? (
           <DashboardScreen onOpenFinance={() => setTab("finance")} />
@@ -89,6 +84,7 @@ function Shell() {
             </Pressable>
           );
         })}
+        {showAccount && <AccountMenu />}
       </View>
     </SafeAreaView>
   );
@@ -96,13 +92,6 @@ function Shell() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
-  topBar: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    paddingHorizontal: 14,
-    paddingTop: 6,
-    paddingBottom: 2,
-  },
   tabBar: {
     flexDirection: "row",
     borderTopWidth: 1,
