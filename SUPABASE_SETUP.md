@@ -10,9 +10,10 @@ code to type. This works on Supabase's **free built-in email**, so there's
 **nothing to buy and no SMTP to configure** — you only allow-list your site URL
 (step 3).
 
-> **Mobile sign-in:** the magic link needs deep-linking back into the native app,
-> which isn't wired up yet. On mobile, use **"Continue as guest"** for now (fully
-> local). Web sign-in + sync works today.
+> **Mobile sign-in (Android):** the app asks Supabase to redirect the magic
+> link to `https://streakli.vercel.app/app-auth.html` (same host as the Site URL,
+> so no extra redirect URL is needed). That static page hands the tokens to the
+> app via the `streakli://auth` deep link. Open the email **on the phone**.
 
 Until you set the env vars (step 5), the apps run **local-only** exactly as
 before — nothing breaks in production until you're ready.

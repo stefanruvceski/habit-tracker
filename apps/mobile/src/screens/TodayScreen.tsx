@@ -112,6 +112,9 @@ export function TodayScreen() {
               <Text style={{ flex: 1, color: C.text, fontSize: 13 }} numberOfLines={1}>
                 {t.title}
               </Text>
+              <Text style={{ color: C.faint, fontSize: 11 }}>
+                {MONTH_NAMES[fromKey(t.date).getMonth()].slice(0, 3)} {fromKey(t.date).getDate()}
+              </Text>
               <Pressable onPress={() => actions.moveTodo(t.id, todayKey())} hitSlop={6}>
                 <Text style={{ color: C.accent, fontSize: 12, fontWeight: "600" }}>→ Today</Text>
               </Pressable>
@@ -337,7 +340,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  overdueRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 5 },
+  overdueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: C.elev2,
+    marginBottom: 6,
+  },
   stepBtn: { width: 38, height: 38, borderRadius: 10, backgroundColor: C.elev2, alignItems: "center", justifyContent: "center" },
   stepBtnText: { color: C.text, fontSize: 20, fontWeight: "700" },
   track: { flex: 1, height: 8, borderRadius: 4, backgroundColor: C.elev2, overflow: "hidden" },

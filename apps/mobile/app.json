@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "Habit Tracker",
+    "name": "Streakli",
     "slug": "habit-tracker",
-    "scheme": "habittracker",
+    "scheme": "streakli",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -15,26 +15,32 @@
         {
           "color": "#34d399"
         }
-      ]
+      ],
+      "./plugins/withReleaseSigning"
     ],
     "splash": {
       "backgroundColor": "#0a0f1e",
       "resizeMode": "contain",
-      "image": "./assets/splash-icon.png"
+      "image": "./assets/splash-icon.png",
+      "imageWidth": 160
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.habittracker.app"
+      "bundleIdentifier": "com.ruvceski.streakli"
     },
     "android": {
-      "package": "com.habittracker.app",
+      "package": "com.ruvceski.streakli",
       "adaptiveIcon": {
         "backgroundColor": "#0a0f1e",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.REQUEST_INSTALL_PACKAGES"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"

@@ -1,7 +1,11 @@
 import { useState } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaProvider,
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { C } from "./src/lib/theme";
 import { TodayScreen } from "./src/screens/TodayScreen";
 import { MonthScreen } from "./src/screens/MonthScreen";
@@ -12,6 +16,7 @@ import { SignInScreen } from "./src/screens/SignInScreen";
 import { AuthProvider, useAuth } from "./src/lib/auth";
 import { CloudSync } from "./src/components/CloudSync";
 import { AccountMenu } from "./src/components/AccountMenu";
+import { UpdateBanner } from "./src/components/UpdateBanner";
 import {
   TodayIcon,
   MonthIcon,
@@ -63,8 +68,11 @@ function Shell() {
   const Active = TABS.find((t) => t.key === tab)!.Screen;
   const { configured, session, guest } = useAuth();
   const showAccount = configured && (!!session || guest);
+  // Edge-to-edge (Android 15+ / Pixel): keep the tab bar above the gesture bar.
+  const insets = useSafeAreaInsets();
   return (
     <SafeAreaView style={styles.root} edges={["top", "left", "right"]}>
+      <UpdateBanner />
       <View style={{ flex: 1 }}>
         {tab === "year" ? (
           <DashboardScreen onOpenFinance={() => setTab("finance")} />
@@ -72,7 +80,7 @@ function Shell() {
           <Active />
         )}
       </View>
-      <View style={styles.tabBar}>
+      <View style={[styles.tabBar, { paddingBottom: 6 + insets.bottom }]}>
         {TABS.map((t) => {
           const activeColor = tab === t.key ? C.accent : C.faint;
           return (

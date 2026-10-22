@@ -71,17 +71,17 @@ export function DashboardScreen({ onOpenFinance }: { onOpenFinance?: () => void 
         </View>
       </View>
 
-      <View style={{ flexDirection: "row", gap: 8 }}>
-        <Mini label="Avg progress" value={pct(yearAvg)} color={C.accent} />
-        <Mini label="Best month" value={bestMonth.completed > 0 ? MONTH_SHORT[bestMonth.month] : "—"} color={C.accent2} />
-        <Mini label="Active" value={`${activeMonths}/12`} />
-      </View>
-
       <Insights entries={state.entries} habits={habits} mental={state.mental} />
 
       <FinanceGlance year={year} onOpen={onOpenFinance} />
 
       <MeasurableTotals year={year} habits={habits} entries={state.entries} />
+
+      <View style={{ flexDirection: "row", gap: 8 }}>
+        <Mini label="Avg progress" value={pct(yearAvg)} color={C.accent} />
+        <Mini label="Best month" value={bestMonth.completed > 0 ? MONTH_SHORT[bestMonth.month] : "—"} color={C.accent2} />
+        <Mini label="Active months" value={`${activeMonths}/12`} />
+      </View>
 
       <Card>
         <LineChart
@@ -97,7 +97,7 @@ export function DashboardScreen({ onOpenFinance }: { onOpenFinance?: () => void 
 
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         {summary.map((m) => (
-          <Card key={m.month} style={{ width: "47.5%", padding: 12 }}>
+          <Card key={m.month} style={{ flexGrow: 1, flexBasis: "40%", padding: 12 }}>
             <Text style={{ color: C.text, fontWeight: "700", textAlign: "center", marginBottom: 8 }}>
               {MONTH_NAMES[m.month]}
             </Text>
