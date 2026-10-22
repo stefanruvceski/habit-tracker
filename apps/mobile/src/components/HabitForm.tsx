@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Modal, View, Text, TextInput, Pressable, ScrollView, StyleSheet } from "react-native";
 import { Habit, HabitType, HabitGoalType, Aggregation, Schedule, EMOJI_SUGGESTIONS, PALETTE, WEEKDAY_SHORT, WEEKDAY_ORDER_MON, searchIcons } from "@habit/core";
 import { C } from "../lib/theme";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HabitGlyph } from "./HabitGlyph";
 
 export interface HabitDraft {
@@ -55,6 +56,7 @@ export function HabitForm({
   onDelete?: () => void;
   onClose: () => void;
 }) {
+  const insets = useSafeAreaInsets();
   const [draft, setDraft] = useState<HabitDraft>(toDraft(initial));
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [query, setQuery] = useState("");
@@ -87,7 +89,7 @@ export function HabitForm({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={() => {}}>
+        <Pressable style={[styles.sheet, { paddingBottom: 18 + insets.bottom }]} onPress={() => {}}>
           <ScrollView>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
               <Text style={styles.h}>{initial ? "Edit habit" : "New habit"}</Text>

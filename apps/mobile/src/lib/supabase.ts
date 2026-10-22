@@ -20,6 +20,8 @@ export const supabase: SupabaseClient | null = supabaseConfigured
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: false,
+        // Magic link: tokens arrive via the streakli:// deep link (see authLink.ts).
+        flowType: "implicit",
       },
     })
   : null;

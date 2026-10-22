@@ -3,6 +3,8 @@ import { View, Text, Pressable, Modal, StyleSheet } from "react-native";
 import { initialsFromEmail } from "@habit/core";
 import { useAuth } from "../lib/auth";
 import { C } from "../lib/theme";
+import { installedBuild } from "../lib/updates";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 /**
  * Account entry for the bottom tab bar: an initials avatar + "Account" label
@@ -12,6 +14,7 @@ import { C } from "../lib/theme";
 export function AccountMenu() {
   const { configured, session, email, guest, signOut, exitGuest } = useAuth();
   const [open, setOpen] = useState(false);
+  const insets = useSafeAreaInsets();
 
   if (!configured) return null;
   if (!session && !guest) return null;
@@ -31,12 +34,16 @@ export function AccountMenu() {
       </Pressable>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
+        <Pressable
+          style={[styles.backdrop, { paddingBottom: 90 + insets.bottom }]}
+          onPress={() => setOpen(false)}
+        >
           <View style={styles.card}>
             <Text style={styles.kicker}>{isGuest ? "GUEST" : "SIGNED IN"}</Text>
             <Text style={styles.email} numberOfLines={1}>
               {isGuest ? "Saved on this device" : email}
             </Text>
+            <Text style={styles.version}>Streakli for Android · build {installedBuild() || "dev"}</Text>
             <View style={styles.divider} />
             {isGuest ? (
               <Pressable
@@ -92,6 +99,7 @@ const styles = StyleSheet.create({
   },
   kicker: { color: C.faint, fontSize: 10, letterSpacing: 0.5, fontWeight: "700" },
   email: { color: C.text, fontSize: 14, marginTop: 2 },
+  version: { color: C.faint, fontSize: 11, marginTop: 6 },
   divider: { height: 1, backgroundColor: C.border, marginVertical: 10, marginHorizontal: -16 },
   action: { fontSize: 15, fontWeight: "600", color: C.text, paddingVertical: 6 },
 });

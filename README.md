@@ -59,16 +59,20 @@ cd apps/mobile
 npx expo start       # scan the QR code with Expo Go
 ```
 
-- **Expo Go** (fastest): install *Expo Go* from the App Store / Play Store and scan the
-  QR code to run it on your phone immediately.
-- **Standalone build** (installable `.apk` / `.ipa`) via [EAS](https://docs.expo.dev/build/setup/):
-  ```bash
-  npm i -g eas-cli
-  eas login
-  eas build:configure
-  eas build -p android --profile preview   # APK you can sideload
-  eas build -p ios --profile preview       # needs an Apple developer account
-  ```
+### Android builds (Streakli)
+
+Every push to `main` that touches `apps/mobile` or `packages/core` runs the
+**Android APK** workflow (`.github/workflows/android.yml`): tests → `expo prebuild`
+→ signed `assembleRelease` (arm64) → GitHub Release `android-b<N>` with
+`streakli.apk`. `N` is the Android `versionCode` (the workflow run number).
+
+- The installed app checks those releases and shows an **Update available**
+  banner; one tap downloads and installs the new APK (data is kept).
+- On the Mac, `~/Documents/Streakli/streakli.sh` installs the newest build over
+  Wi-Fi with `adb` (wireless debugging); see the README next to it.
+- Signing: secrets `STREAKLI_KEYSTORE_BASE64` + `STREAKLI_KEYSTORE_PASSWORD`
+  (alias `streakli`), applied by `apps/mobile/plugins/withReleaseSigning.js`.
+  Keep the keystore safe — a different key can't update the installed app.
 
 ## Data model
 

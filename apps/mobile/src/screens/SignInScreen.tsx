@@ -3,33 +3,25 @@ import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
 import { useAuth } from "../lib/auth";
 import { C } from "../lib/theme";
 
-/** Email → 6-digit code sign-in (registers on first use). */
+/** Email → magic sign-in link (registers on first use), same as the web app. */
 export function SignInScreen() {
-  const { sendCode, verifyCode, continueAsGuest } = useAuth();
-  const [step, setStep] = useState<"email" | "code">("email");
+  const { sendMagicLink, continueAsGuest, linkError } = useAuth();
   const [email, setEmail] = useState("");
-  const [code, setCode] = useState("");
+  const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function submitEmail() {
+  async function submit() {
     if (!email.trim()) return;
     setBusy(true);
     setError(null);
-    const { error } = await sendCode(email);
+    const { error } = await sendMagicLink(email);
     setBusy(false);
     if (error) setError(error);
-    else setStep("code");
+    else setSent(true);
   }
 
-  async function submitCode() {
-    if (code.length < 6) return;
-    setBusy(true);
-    setError(null);
-    const { error } = await verifyCode(email, code);
-    setBusy(false);
-    if (error) setError(error);
-  }
+  const shownError = error ?? linkError;
 
   return (
     <View style={styles.root}>
@@ -37,60 +29,54 @@ export function SignInScreen() {
         <Text style={{ fontSize: 30, textAlign: "center" }}>🌱</Text>
         <Text style={styles.title}>Habit Tracker</Text>
         <Text style={styles.sub}>
-          {step === "email"
-            ? "Sign in with your email — we'll send a code."
-            : `Enter the code we sent to ${email}.`}
+          {sent
+            ? `We sent a sign-in link to ${email}. Open it on this phone to sign in.`
+            : "Sign in with your email — we'll send you a link."}
         </Text>
 
-        {step === "email" ? (
+        {sent ? (
           <>
-            <TextInput
-              value={email}
-              onChangeText={setEmail}
-              placeholder="you@email.com"
-              placeholderTextColor={C.faint}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              style={styles.input}
-            />
             <Pressable
-              style={[styles.btn, (busy || !email.trim()) && { opacity: 0.4 }]}
-              onPress={submitEmail}
-              disabled={busy || !email.trim()}
+              style={[styles.btn, busy && { opacity: 0.4 }]}
+              onPress={submit}
+              disabled={busy}
             >
-              <Text style={styles.btnText}>{busy ? "Sending…" : "Send code"}</Text>
-            </Pressable>
-          </>
-        ) : (
-          <>
-            <TextInput
-              value={code}
-              onChangeText={(t) => setCode(t.replace(/\D/g, "").slice(0, 6))}
-              placeholder="123456"
-              placeholderTextColor={C.faint}
-              keyboardType="number-pad"
-              style={[styles.input, styles.codeInput]}
-            />
-            <Pressable
-              style={[styles.btn, (busy || code.length < 6) && { opacity: 0.4 }]}
-              onPress={submitCode}
-              disabled={busy || code.length < 6}
-            >
-              <Text style={styles.btnText}>{busy ? "Verifying…" : "Verify & sign in"}</Text>
+              <Text style={styles.btnText}>{busy ? "Sending…" : "Resend link"}</Text>
             </Pressable>
             <Pressable
               onPress={() => {
-                setStep("email");
-                setCode("");
+                setSent(false);
                 setError(null);
               }}
             >
               <Text style={styles.link}>‹ Use a different email</Text>
             </Pressable>
           </>
+        ) : (
+          <>
+            <TextInput
+              value={email}
+              onChangeText={setEmail}
+              onSubmitEditing={submit}
+              placeholder="you@email.com"
+              placeholderTextColor={C.faint}
+              autoCapitalize="none"
+              autoComplete="email"
+              keyboardType="email-address"
+              returnKeyType="send"
+              style={styles.input}
+            />
+            <Pressable
+              style={[styles.btn, (busy || !email.trim()) && { opacity: 0.4 }]}
+              onPress={submit}
+              disabled={busy || !email.trim()}
+            >
+              <Text style={styles.btnText}>{busy ? "Sending…" : "Send sign-in link"}</Text>
+            </Pressable>
+          </>
         )}
 
-        {error && <Text style={styles.error}>{error}</Text>}
+        {shownError && <Text style={styles.error}>{shownError}</Text>}
 
         <View style={styles.guestWrap}>
           <Pressable onPress={continueAsGuest} hitSlop={8}>
@@ -127,7 +113,6 @@ const styles = StyleSheet.create({
     color: C.text,
     fontSize: 16,
   },
-  codeInput: { textAlign: "center", letterSpacing: 8, fontSize: 20 },
   btn: { backgroundColor: C.accent, borderRadius: 12, paddingVertical: 13, alignItems: "center" },
   btnText: { color: C.bg, fontWeight: "700", fontSize: 15 },
   link: { color: C.faint, fontSize: 13, textAlign: "center", paddingVertical: 4 },
