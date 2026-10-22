@@ -16,7 +16,50 @@
           "color": "#34d399"
         }
       ],
-      "./plugins/withReleaseSigning"
+      "./plugins/withReleaseSigning",
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "StreakliToday",
+              "label": "Streakli · Today",
+              "description": "Today's habits by morning / afternoon / evening — tap to tick off",
+              "minWidth": "250dp",
+              "minHeight": "180dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 3,
+              "resizeMode": "horizontal|vertical",
+              "previewImage": "./assets/widget-preview/today.png",
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "StreakliProgress",
+              "label": "Streakli · Progress",
+              "description": "Today's progress ring and best streak",
+              "minWidth": "110dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 2,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "previewImage": "./assets/widget-preview/progress.png",
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "StreakliWeight",
+              "label": "Streakli · Weight",
+              "description": "Latest weight, 30-day trend and quick log",
+              "minWidth": "250dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "previewImage": "./assets/widget-preview/weight.png",
+              "updatePeriodMillis": 1800000
+            }
+          ]
+        }
+      ]
     ],
     "splash": {
       "backgroundColor": "#0a0f1e",

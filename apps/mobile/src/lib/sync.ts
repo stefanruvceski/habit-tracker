@@ -33,3 +33,12 @@ export async function pushDoc(
       { onConflict: "user_id,key" },
     );
 }
+
+/** True while the in-app CloudSync is mounted (it pushes local changes itself). */
+let liveSync = false;
+export function setLiveSync(on: boolean): void {
+  liveSync = on;
+}
+export function isLiveSync(): boolean {
+  return liveSync;
+}

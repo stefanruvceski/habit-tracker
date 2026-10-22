@@ -9,6 +9,12 @@ import {
   combinedDayProgress,
   isDoneOn,
   isMeasurable,
+  groupByTimeOfDay,
+  measurableSeries,
+  parseAmount,
+  formatAmount,
+  TIME_OF_DAY_LABEL,
+  TIME_OF_DAY_ICON,
   amountOn,
   isScheduled,
   todosForDate,
@@ -194,26 +200,50 @@ export default function TodayPage() {
           </p>
         )
       ) : (
-        <div className="space-y-2">
-          {scheduled.map((h) =>
-            isMeasurable(h) ? (
-              <MeasurableRow
-                key={h.id}
-                habit={h}
-                amount={amountOn(state.entries, h.id, dateKey)}
-                done={isDoneOn(h, state.entries, dateKey)}
-                onSet={(v) => actions.setAmount(h.id, dateKey, v)}
-              />
-            ) : (
-              <HabitRow
-                key={h.id}
-                habit={h}
-                done={isDoneOn(h, state.entries, dateKey)}
-                streak={currentStreak(state.entries, h)}
-                onToggle={() => actions.toggle(h.id, dateKey)}
-              />
-            ),
-          )}
+        <div className="space-y-4">
+          {groupByTimeOfDay(scheduled).map((g, _i, groups) => {
+            const doneInGroup = g.habits.filter((h) => isDoneOn(h, state.entries, dateKey)).length;
+            return (
+              <div key={g.timeOfDay} className="space-y-2">
+                {(groups.length > 1 || g.timeOfDay !== "anytime") && (
+                  <div className="flex items-center justify-between px-1 text-sm font-semibold text-text-dim">
+                    <span>
+                      {TIME_OF_DAY_ICON[g.timeOfDay]} {TIME_OF_DAY_LABEL[g.timeOfDay]}
+                    </span>
+                    <span
+                      className={`text-xs tabular-nums ${doneInGroup === g.habits.length ? "text-accent" : "text-text-faint"}`}
+                    >
+                      {doneInGroup}/{g.habits.length}
+                    </span>
+                  </div>
+                )}
+                {g.habits.map((h) => {
+                  if (isMeasurable(h)) {
+                    const prev = measurableSeries(state.entries, h.id, "0000-00-00", addDays(dateKey, -1));
+                    return (
+                      <MeasurableRow
+                        key={h.id}
+                        habit={h}
+                        amount={amountOn(state.entries, h.id, dateKey)}
+                        previous={prev.length ? prev[prev.length - 1].value : null}
+                        done={isDoneOn(h, state.entries, dateKey)}
+                        onSet={(v) => actions.setAmount(h.id, dateKey, v)}
+                      />
+                    );
+                  }
+                  return (
+                    <HabitRow
+                      key={h.id}
+                      habit={h}
+                      done={isDoneOn(h, state.entries, dateKey)}
+                      streak={currentStreak(state.entries, h)}
+                      onToggle={() => actions.toggle(h.id, dateKey)}
+                    />
+                  );
+                })}
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -245,19 +275,32 @@ export default function TodayPage() {
 function MeasurableRow({
   habit,
   amount,
+  previous,
   done,
   onSet,
 }: {
   habit: Habit;
   amount: number;
+  previous: number | null;
   done: boolean;
   onSet: (amount: number) => void;
 }) {
   const target = habit.target ?? 0;
+  const hasTarget = target > 0;
   const unit = habit.unit ?? "";
   // Sensible +/- step: 1 for small targets, ~10% for larger ones.
   const step = target >= 50 ? Math.max(1, Math.round(target / 10)) : 1;
-  const pct = target > 0 ? Math.min(100, (amount / target) * 100) : amount > 0 ? 100 : 0;
+  const pct = hasTarget ? Math.min(100, (amount / target) * 100) : amount > 0 ? 100 : 0;
+  const shown = amount ? formatAmount(amount) : "";
+  const [text, setText] = useState(shown);
+  const [editing, setEditing] = useState(false);
+  if (!editing && text !== shown) setText(shown);
+  const commit = () => {
+    setEditing(false);
+    const n = parseAmount(text);
+    onSet(n != null && n > 0 ? n : 0);
+  };
+  const delta = amount > 0 && previous != null ? amount - previous : null;
 
   return (
     <div
@@ -278,36 +321,53 @@ function MeasurableRow({
         <div className="flex-1 min-w-0">
           <div className="font-medium truncate">{habit.name}</div>
           <div className="text-xs text-text-dim tabular-nums">
-            {amount}
-            {target > 0 ? ` / ${target}` : ""} {unit}
-            {done ? " ✓" : ""}
+            {hasTarget
+              ? `${formatAmount(amount)} / ${formatAmount(target)} ${unit}`
+              : amount > 0
+                ? `${formatAmount(amount)} ${unit}`
+                : previous != null
+                  ? `Last: ${formatAmount(previous)} ${unit}`
+                  : `Type a value ${unit}`.trim()}
+            {delta != null && delta !== 0 && (
+              <span className="ml-2">
+                {delta > 0 ? "▲" : "▼"} {formatAmount(Math.abs(delta))}
+              </span>
+            )}
+            {done && hasTarget ? " ✓" : ""}
           </div>
         </div>
         <div className="flex items-center gap-1.5">
-          <button
-            onClick={() => onSet(Math.max(0, amount - step))}
-            className="w-9 h-9 grid place-items-center rounded-lg bg-bg-elev-2 border border-border text-lg"
-            aria-label="Decrease"
-          >
-            −
-          </button>
+          {hasTarget && (
+            <button
+              onClick={() => onSet(Math.max(0, amount - step))}
+              className="w-9 h-9 grid place-items-center rounded-lg bg-bg-elev-2 border border-border text-lg"
+              aria-label="Decrease"
+            >
+              −
+            </button>
+          )}
           <input
-            inputMode="numeric"
-            value={amount || ""}
-            onChange={(e) => onSet(Math.max(0, Number(e.target.value.replace(/[^\d.]/g, "")) || 0))}
-            placeholder="0"
-            className="w-12 text-center bg-bg-elev-2 border border-border rounded-lg py-1.5 tabular-nums"
+            inputMode="decimal"
+            value={text}
+            onFocus={() => setEditing(true)}
+            onChange={(e) => setText(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+            placeholder={previous != null && !hasTarget ? formatAmount(previous) : "0"}
+            className={`${hasTarget ? "w-14" : "w-20"} text-center bg-bg-elev-2 border border-border rounded-lg py-1.5 tabular-nums`}
           />
-          <button
-            onClick={() => onSet(amount + step)}
-            className="w-9 h-9 grid place-items-center rounded-lg bg-bg-elev-2 border border-border text-lg"
-            aria-label="Increase"
-          >
-            +
-          </button>
+          {hasTarget && (
+            <button
+              onClick={() => onSet(amount + step)}
+              className="w-9 h-9 grid place-items-center rounded-lg bg-bg-elev-2 border border-border text-lg"
+              aria-label="Increase"
+            >
+              +
+            </button>
+          )}
         </div>
       </div>
-      {target > 0 && (
+      {hasTarget && (
         <div className="mt-2 h-1.5 rounded-full bg-bg-elev-2 overflow-hidden">
           <div
             className="h-full rounded-full"

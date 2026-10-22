@@ -9,11 +9,22 @@ import {
   useHydrated,
 } from "../../lib/store";
 import { AppState, Habit } from "@habit/core";
-import { bestStreak, currentStreak, isDoneOn, isScheduled } from "@habit/core";
+import {
+  bestStreak,
+  currentStreak,
+  isDoneOn,
+  isMeasurable,
+  isScheduled,
+  sortByTimeOfDay,
+  timeOfDayOf,
+  TIME_OF_DAY_ICON,
+  TIME_OF_DAY_LABEL,
+} from "@habit/core";
 import { HabitForm, HabitDraft } from "../../components/HabitForm";
 import { Heatmap, CellState } from "../../components/Heatmap";
 import { Card, PageHeader } from "../../components/ui";
 import { HabitGlyph } from "../../components/HabitGlyph";
+import { TrendChart } from "../../components/TrendChart";
 
 export default function HabitsPage() {
   const hydrated = useHydrated();
@@ -76,16 +87,16 @@ export default function HabitsPage() {
       </div>
 
       <div className="space-y-3">
-        {habits.map((h, i) => (
+        {sortByTimeOfDay(habits).map((h, i, list) => (
           <HabitManageCard
             key={h.id}
             habit={h}
             state={state}
             year={year}
-            isFirst={i === 0}
-            isLast={i === habits.length - 1}
+            isFirst={i === 0 || timeOfDayOf(list[i - 1]) !== timeOfDayOf(h)}
+            isLast={i === list.length - 1 || timeOfDayOf(list[i + 1]) !== timeOfDayOf(h)}
             onEdit={() => setEditing(h)}
-            onMove={(dir) => moveHabit(habits, h.id, dir)}
+            onMove={(dir) => moveHabit(list, h.id, dir)}
           />
         ))}
         {habits.length === 0 && (
@@ -173,6 +184,7 @@ function HabitManageCard({
         <div className="flex-1 min-w-0">
           <div className="font-medium truncate">{habit.name}</div>
           <div className="text-xs text-text-dim">
+            {TIME_OF_DAY_ICON[timeOfDayOf(habit)]} {TIME_OF_DAY_LABEL[timeOfDayOf(habit)]} ·{" "}
             {habit.type === "quit" ? "🚫 Quit · " : ""}
             {scheduleLabel} · 🔥 {cur} · best {best}
           </div>
@@ -203,14 +215,20 @@ function HabitManageCard({
           </button>
         </div>
       </div>
-      <div className="mt-3">
-        <div className="flex justify-end mb-1">
-          <span className="text-[10px] font-medium text-text-faint tabular-nums">
-            {year}
-          </span>
+      {isMeasurable(habit) ? (
+        <div className="mt-3">
+          <TrendChart habit={habit} entries={state.entries} />
         </div>
-        <Heatmap year={year} color={habit.color} getState={getState} />
-      </div>
+      ) : (
+        <div className="mt-3">
+          <div className="flex justify-end mb-1">
+            <span className="text-[10px] font-medium text-text-faint tabular-nums">
+              {year}
+            </span>
+          </div>
+          <Heatmap year={year} color={habit.color} getState={getState} />
+        </div>
+      )}
     </Card>
   );
 }

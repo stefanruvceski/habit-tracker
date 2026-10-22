@@ -39,10 +39,18 @@ async function persist() {
   }
 }
 
-let loadStarted = false;
-async function load() {
-  if (loadStarted) return;
-  loadStarted = true;
+let loadPromise: Promise<void> | null = null;
+function load(): Promise<void> {
+  if (!loadPromise) loadPromise = doLoad();
+  return loadPromise;
+}
+
+/** Resolves once the store has been read from storage (used by widgets). */
+export function ensureLoaded(): Promise<void> {
+  return load();
+}
+
+async function doLoad() {
   try {
     const raw = await AsyncStorage.getItem(STORAGE_KEY);
     if (raw) {

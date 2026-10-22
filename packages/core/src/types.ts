@@ -49,7 +49,16 @@ export interface Habit {
   target?: number;
   /** How measurable amounts roll up over a period (defaults to "sum"). */
   aggregation?: Aggregation;
+  /**
+   * When in the day the habit usually happens. Groups and orders the Today
+   * list, and picks which reminder (morning / afternoon / evening / anytime)
+   * nudges it. Absent = "anytime".
+   */
+  timeOfDay?: TimeOfDay;
 }
+
+/** Part of the day a habit belongs to. */
+export type TimeOfDay = "morning" | "afternoon" | "evening" | "anytime";
 
 /**
  * Per-day entries keyed by date (YYYY-MM-DD) then by habitId.

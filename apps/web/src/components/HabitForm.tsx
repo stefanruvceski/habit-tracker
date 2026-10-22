@@ -12,6 +12,12 @@ import {
   WEEKDAY_SHORT,
   WEEKDAY_ORDER_MON,
   searchIcons,
+  TIME_OF_DAY_ORDER,
+  TIME_OF_DAY_LABEL,
+  TIME_OF_DAY_ICON,
+  parseAmount,
+  formatAmount,
+  type TimeOfDay,
 } from "@habit/core";
 import { HabitGlyph } from "./HabitGlyph";
 
@@ -26,6 +32,7 @@ export interface HabitDraft {
   unit?: string;
   target?: number;
   aggregation?: Aggregation;
+  timeOfDay: TimeOfDay;
 }
 
 function toDraft(h?: Habit | null): HabitDraft {
@@ -38,6 +45,7 @@ function toDraft(h?: Habit | null): HabitDraft {
       type: "build",
       schedule: { type: "daily" },
       goalType: "binary",
+      timeOfDay: "anytime",
     };
   return {
     name: h.name,
@@ -50,6 +58,7 @@ function toDraft(h?: Habit | null): HabitDraft {
     unit: h.unit,
     target: h.target,
     aggregation: h.aggregation,
+    timeOfDay: h.timeOfDay ?? "anytime",
   };
 }
 
@@ -67,6 +76,9 @@ export function HabitForm({
   const [draft, setDraft] = useState<HabitDraft>(toDraft(initial));
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [query, setQuery] = useState("");
+  const [targetText, setTargetText] = useState(
+    initial?.target != null ? formatAmount(initial.target) : "",
+  );
 
   const scheduleType = draft.schedule.type;
   const weekdayDays =
@@ -270,18 +282,17 @@ export function HabitForm({
           <div className="mb-4 grid grid-cols-2 gap-2">
             <label className="block">
               <span className="text-[11px] uppercase tracking-wide text-text-faint">
-                Daily target
+                Daily target (optional)
               </span>
               <input
                 inputMode="decimal"
-                value={draft.target ?? ""}
-                onChange={(e) =>
-                  setDraft((d) => ({
-                    ...d,
-                    target: e.target.value ? Number(e.target.value.replace(/[^\d.]/g, "")) : undefined,
-                  }))
-                }
-                placeholder="e.g. 8"
+                value={targetText}
+                onChange={(e) => {
+                  setTargetText(e.target.value);
+                  const n = parseAmount(e.target.value);
+                  setDraft((d) => ({ ...d, target: n != null && n > 0 ? n : undefined }));
+                }}
+                placeholder="empty = just log it"
                 className="mt-1 w-full bg-bg-elev-2 rounded-lg px-3 py-2 tabular-nums outline-none focus:ring-2 focus:ring-accent/50"
               />
             </label>
@@ -292,7 +303,7 @@ export function HabitForm({
               <input
                 value={draft.unit ?? ""}
                 onChange={(e) => setDraft((d) => ({ ...d, unit: e.target.value }))}
-                placeholder="e.g. glasses, min"
+                placeholder="kg, min, pages"
                 className="mt-1 w-full bg-bg-elev-2 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-accent/50"
               />
             </label>
@@ -315,6 +326,28 @@ export function HabitForm({
             </label>
           </div>
         )}
+
+        {/* Time of day */}
+        <label className="block text-xs uppercase tracking-wide text-text-faint mb-1.5">
+          When
+        </label>
+        <div className="grid grid-cols-4 gap-2 mb-4">
+          {TIME_OF_DAY_ORDER.map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setDraft((d) => ({ ...d, timeOfDay: t }))}
+              className={`rounded-xl border py-2 text-xs flex flex-col items-center gap-0.5 ${
+                draft.timeOfDay === t
+                  ? "border-accent bg-accent/10 text-text"
+                  : "border-border text-text-dim"
+              }`}
+            >
+              <span className="text-base">{TIME_OF_DAY_ICON[t]}</span>
+              {TIME_OF_DAY_LABEL[t]}
+            </button>
+          ))}
+        </div>
 
         {/* Schedule */}
         <label className="block text-xs uppercase tracking-wide text-text-faint mb-1.5">

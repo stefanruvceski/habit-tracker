@@ -1,8 +1,17 @@
-import { registerRootComponent } from 'expo';
+import { Platform } from "react-native";
+import { registerRootComponent } from "expo";
 
-import App from './App';
+import App from "./App";
 
 // registerRootComponent calls AppRegistry.registerComponent('main', () => App);
-// It also ensures that whether you load the app in Expo Go or in a native build,
-// the environment is set up appropriately
 registerRootComponent(App);
+
+// Home screen widgets (Android): handles add / update / tap events, also when
+// the app itself is closed.
+if (Platform.OS === "android") {
+  /* eslint-disable @typescript-eslint/no-require-imports */
+  const { registerWidgetTaskHandler } = require("react-native-android-widget");
+  const { widgetTaskHandler } = require("./src/widgets/taskHandler");
+  /* eslint-enable @typescript-eslint/no-require-imports */
+  registerWidgetTaskHandler(widgetTaskHandler);
+}

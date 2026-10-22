@@ -95,3 +95,40 @@ export async function cancelReminder(id: string): Promise<void> {
     // not scheduled
   }
 }
+
+/** Prefix of the one-off time-of-day reminders (`tod-<section>-<date>`). */
+export const ROUTINE_PREFIX = "tod-";
+
+export interface RoutineNotification {
+  id: string;
+  at: Date;
+  title: string;
+  body: string;
+}
+
+/**
+ * Replace all scheduled time-of-day reminders with `list`: cancels the old
+ * `tod-*` ones that are no longer wanted and schedules the new ones as
+ * one-off DATE triggers (each carries its own text, e.g. what's still open).
+ */
+export async function replaceRoutineReminders(list: RoutineNotification[]): Promise<void> {
+  await ensureAndroidChannel();
+  let existing: string[] = [];
+  try {
+    existing = (await Notifications.getAllScheduledNotificationsAsync())
+      .map((n) => n.identifier)
+      .filter((id) => id.startsWith(ROUTINE_PREFIX));
+  } catch {
+    // ignore
+  }
+  const wanted = new Set(list.map((n) => n.id));
+  await Promise.all(existing.filter((id) => !wanted.has(id)).map((id) => cancelReminder(id)));
+  for (const n of list) {
+    // Re-scheduling with the same identifier replaces it (text may have changed).
+    await Notifications.scheduleNotificationAsync({
+      identifier: n.id,
+      content: { title: n.title, body: n.body },
+      trigger: { type: SchedulableTriggerInputTypes.DATE, date: n.at, channelId: CHANNEL_ID },
+    });
+  }
+}

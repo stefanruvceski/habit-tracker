@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { useEffect, useState } from "react";
+import { View, Text, Pressable, StyleSheet, Linking, Platform } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import {
   SafeAreaProvider,
@@ -17,6 +17,8 @@ import { AuthProvider, useAuth } from "./src/lib/auth";
 import { CloudSync } from "./src/components/CloudSync";
 import { AccountMenu } from "./src/components/AccountMenu";
 import { UpdateBanner } from "./src/components/UpdateBanner";
+import { subscribeApp } from "./src/lib/store";
+import { parseLogLink, requestFocus } from "./src/lib/focusRequest";
 import {
   TodayIcon,
   MonthIcon,
@@ -63,8 +65,37 @@ function Gate() {
   );
 }
 
+// Keep home screen widgets in step with the app's data (debounced).
+let widgetTimer: ReturnType<typeof setTimeout> | undefined;
+function useWidgetRefresh() {
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    return subscribeApp(() => {
+      if (widgetTimer) clearTimeout(widgetTimer);
+      widgetTimer = setTimeout(() => {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        void require("./src/widgets/taskHandler").updateAllWidgets();
+      }, 800);
+    });
+  }, []);
+}
+
 function Shell() {
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("today");
+  useWidgetRefresh();
+
+  // streakli://log/<habitId> (weight widget "+ Log") → Today, focus that field.
+  useEffect(() => {
+    const handle = (url: string | null) => {
+      const id = parseLogLink(url);
+      if (!id) return;
+      setTab("today");
+      requestFocus(id);
+    };
+    void Linking.getInitialURL().then(handle);
+    const sub = Linking.addEventListener("url", ({ url }) => handle(url));
+    return () => sub.remove();
+  }, []);
   const Active = TABS.find((t) => t.key === tab)!.Screen;
   const { configured, session, guest } = useAuth();
   const showAccount = configured && (!!session || guest);

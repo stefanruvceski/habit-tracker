@@ -30,6 +30,7 @@ import {
 } from "../lib/financeStore";
 import { C, pct } from "../lib/theme";
 import { Card, ProgressRing } from "../components/ui";
+import { DateField } from "../components/DateField";
 
 function fmtMoney(amount: number, currency: string): string {
   try {
@@ -422,17 +423,11 @@ function QuickAdd() {
         onChange={setCurrency}
       />
 
+      <View style={{ marginTop: 4 }}>
+        <Text style={styles.fieldLabel}>DATE</Text>
+        <DateField value={date} onChange={setDate} />
+      </View>
       <View style={{ flexDirection: "row", gap: 8, marginTop: 4 }}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.fieldLabel}>DATE</Text>
-          <TextInput
-            value={date}
-            onChangeText={setDate}
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor={C.faint}
-            style={styles.input}
-          />
-        </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.fieldLabel}>STATUS</Text>
           <View style={styles.chipRow}>
@@ -643,13 +638,7 @@ function BudgetControls({ month, year }: { month: number; year: number }) {
           <Text style={styles.fieldLabel}>CURRENCY</Text>
           <CurrencyChips value={currency} onChange={setCurrency} />
           <Text style={styles.fieldLabel}>DATE</Text>
-          <TextInput
-            value={date}
-            onChangeText={setDate}
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor={C.faint}
-            style={styles.input}
-          />
+          <DateField value={date} onChange={setDate} />
           <Text style={styles.fieldLabel}>NOTE (OPTIONAL)</Text>
           <TextInput
             value={note}
