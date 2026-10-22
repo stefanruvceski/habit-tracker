@@ -74,7 +74,8 @@ export function installedBuild(): number {
 
 /** Ask GitHub for the newest release; null if offline or none newer. */
 export async function checkForUpdate(current = installedBuild()): Promise<ReleaseInfo | null> {
-  if (Platform.OS !== "android") return null;
+  // The dev build gets its JS live from Metro; only the real app self-updates.
+  if (Platform.OS !== "android" || process.env.EXPO_PUBLIC_APP_VARIANT === "dev") return null;
   try {
     const res = await fetch(RELEASES_URL, {
       headers: { Accept: "application/vnd.github+json" },

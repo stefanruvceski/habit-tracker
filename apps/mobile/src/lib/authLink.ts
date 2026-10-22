@@ -7,8 +7,13 @@
  * this app as `streakli://auth?access_token=…&refresh_token=…`.
  */
 
+/** True in the "Streakli Dev" build (JS served live from Metro on the Mac). */
+export const IS_DEV_VARIANT = process.env.EXPO_PUBLIC_APP_VARIANT === "dev";
+
 /** Where Supabase sends the user after they tap the email link. */
-export const AUTH_REDIRECT_URL = "https://streakli.vercel.app/app-auth.html";
+export const AUTH_REDIRECT_URL = IS_DEV_VARIANT
+  ? "https://streakli.vercel.app/app-auth.html?app=dev"
+  : "https://streakli.vercel.app/app-auth.html";
 
 export type AuthLinkResult =
   | { kind: "session"; accessToken: string; refreshToken: string }
@@ -17,7 +22,7 @@ export type AuthLinkResult =
 
 /** Parse a deep link; returns tokens, an error, or "none" for unrelated URLs. */
 export function parseAuthLink(url: string | null | undefined): AuthLinkResult {
-  if (!url || !/^streakli:\/\/auth/i.test(url)) return { kind: "none" };
+  if (!url || !/^streakli(-dev)?:\/\/auth/i.test(url)) return { kind: "none" };
   const q = url.indexOf("?");
   const h = url.indexOf("#");
   const parts = [

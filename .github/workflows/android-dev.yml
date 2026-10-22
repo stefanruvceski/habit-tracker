@@ -1,0 +1,77 @@
+name: Android Dev Client
+
+# Builds "Streakli Dev" (com.ruvceski.streakli.dev): an expo-dev-client build
+# that installs next to the real app and loads JS live from Metro on the Mac
+# (`./streakli.sh dev`). Only native changes need a new one — JS/UI edits show
+# up instantly — so this runs on dependency/config changes or by hand.
+# Published as the pre-release `android-dev` (replaced each time).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/mobile/package.json"
+      - "apps/mobile/app.json"
+      - "apps/mobile/app.config.js"
+      - "apps/mobile/plugins/**"
+      - "apps/mobile/assets/**"
+      - ".github/workflows/android-dev.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: android-dev
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+env:
+  APP_VARIANT: dev
+  EXPO_PUBLIC_APP_VARIANT: dev
+  EXPO_PUBLIC_SUPABASE_URL: https://kyxzniteynjdynscikbn.supabase.co
+  EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_T9KgrKtFYCD8mwHy2wdmGg_PkA1fuSE
+
+jobs:
+  dev-apk:
+    name: Build dev client APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Expo prebuild (android, dev variant)
+        working-directory: apps/mobile
+        run: npx expo prebuild -p android --no-install
+        env:
+          CI: "1"
+
+      - name: Gradle assembleDebug
+        working-directory: apps/mobile/android
+        run: ./gradlew assembleDebug --no-daemon -PreactNativeArchitectures=arm64-v8a
+
+      - name: Publish pre-release android-dev
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk streakli-dev.apk
+          gh release delete android-dev --yes --cleanup-tag 2>/dev/null || true
+          gh release create android-dev streakli-dev.apk \
+            --prerelease \
+            --title "Streakli Dev (development client)" \
+            --notes "Development build for live reload from the Mac (./streakli.sh dev). Built from $(git rev-parse --short HEAD)." \
+            --target "$GITHUB_SHA"

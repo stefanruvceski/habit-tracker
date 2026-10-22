@@ -43,7 +43,11 @@ export function AccountMenu() {
             <Text style={styles.email} numberOfLines={1}>
               {isGuest ? "Saved on this device" : email}
             </Text>
-            <Text style={styles.version}>Streakli for Android · build {installedBuild() || "dev"}</Text>
+            <Text style={styles.version}>
+              {process.env.EXPO_PUBLIC_APP_VARIANT === "dev"
+                ? "Streakli Dev · live from Mac"
+                : `Streakli for Android · build ${installedBuild() || "dev"}`}
+            </Text>
             <View style={styles.divider} />
             {isGuest ? (
               <Pressable
