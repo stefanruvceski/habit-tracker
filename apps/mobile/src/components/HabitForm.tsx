@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Modal, View, Text, TextInput, Pressable, ScrollView, StyleSheet } from "react-native";
-import { Habit, HabitType, HabitGoalType, Aggregation, Schedule, EMOJI_SUGGESTIONS, PALETTE, WEEKDAY_SHORT, WEEKDAY_ORDER_MON, searchIcons } from "@habit/core";
+import { Habit, HabitType, HabitGoalType, Aggregation, Schedule, TimeOfDay, EMOJI_SUGGESTIONS, PALETTE, WEEKDAY_SHORT, WEEKDAY_ORDER_MON, TIME_OF_DAY_ORDER, TIME_OF_DAY_LABEL, TIME_OF_DAY_ICON, searchIcons, parseAmount, formatAmount } from "@habit/core";
 import { C } from "../lib/theme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HabitGlyph } from "./HabitGlyph";
@@ -16,6 +16,7 @@ export interface HabitDraft {
   unit?: string;
   target?: number;
   aggregation?: Aggregation;
+  timeOfDay: TimeOfDay;
 }
 
 function toDraft(h?: Habit | null): HabitDraft {
@@ -28,6 +29,7 @@ function toDraft(h?: Habit | null): HabitDraft {
       type: "build",
       schedule: { type: "daily" },
       goalType: "binary",
+      timeOfDay: "anytime",
     };
   return {
     name: h.name,
@@ -40,6 +42,7 @@ function toDraft(h?: Habit | null): HabitDraft {
     unit: h.unit,
     target: h.target,
     aggregation: h.aggregation,
+    timeOfDay: h.timeOfDay ?? "anytime",
   };
 }
 
@@ -60,12 +63,15 @@ export function HabitForm({
   const [draft, setDraft] = useState<HabitDraft>(toDraft(initial));
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [query, setQuery] = useState("");
+  // Raw text of the target field so "82," can be typed on the way to "82,4".
+  const [targetText, setTargetText] = useState("");
   const results = useMemo(() => searchIcons(query), [query]);
 
   // Re-seed the form each time it opens.
   const [lastVisible, setLastVisible] = useState(false);
   if (visible && !lastVisible) {
     setDraft(toDraft(initial));
+    setTargetText(initial?.target != null ? formatAmount(initial.target) : "");
     setConfirmDelete(false);
     setQuery("");
     setLastVisible(true);
@@ -206,17 +212,16 @@ export function HabitForm({
               <View style={{ marginBottom: 12, gap: 8 }}>
                 <View style={{ flexDirection: "row", gap: 8 }}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.label}>DAILY TARGET</Text>
+                    <Text style={styles.label}>DAILY TARGET (OPTIONAL)</Text>
                     <TextInput
-                      value={draft.target != null ? String(draft.target) : ""}
-                      onChangeText={(t) =>
-                        setDraft((d) => ({
-                          ...d,
-                          target: t ? Number(t.replace(/[^\d.]/g, "")) || undefined : undefined,
-                        }))
-                      }
+                      value={targetText}
+                      onChangeText={(t) => {
+                        setTargetText(t);
+                        const n = parseAmount(t);
+                        setDraft((d) => ({ ...d, target: n != null && n > 0 ? n : undefined }));
+                      }}
                       keyboardType="decimal-pad"
-                      placeholder="e.g. 8"
+                      placeholder="empty = just log it"
                       placeholderTextColor={C.faint}
                       style={styles.input}
                     />
@@ -226,7 +231,7 @@ export function HabitForm({
                     <TextInput
                       value={draft.unit ?? ""}
                       onChangeText={(t) => setDraft((d) => ({ ...d, unit: t }))}
-                      placeholder="glasses, min"
+                      placeholder="kg, min, pages"
                       placeholderTextColor={C.faint}
                       style={styles.input}
                     />
@@ -255,6 +260,22 @@ export function HabitForm({
                 </View>
               </View>
             )}
+
+            <Text style={styles.label}>WHEN</Text>
+            <View style={{ flexDirection: "row", gap: 6, marginBottom: 14 }}>
+              {TIME_OF_DAY_ORDER.map((t) => (
+                <Pressable
+                  key={t}
+                  onPress={() => setDraft((d) => ({ ...d, timeOfDay: t }))}
+                  style={[styles.seg, { paddingHorizontal: 4 }, draft.timeOfDay === t && styles.segActive]}
+                >
+                  <Text style={{ fontSize: 15 }}>{TIME_OF_DAY_ICON[t]}</Text>
+                  <Text style={{ color: draft.timeOfDay === t ? C.text : C.dim, fontSize: 12 }}>
+                    {TIME_OF_DAY_LABEL[t]}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
 
             <Text style={styles.label}>SCHEDULE</Text>
             <View style={{ flexDirection: "row", gap: 8, marginBottom: 10 }}>

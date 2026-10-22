@@ -81,8 +81,8 @@ describe("HabitForm", () => {
       target: { value: "Water" },
     });
     fireEvent.click(getByText("🔢 Amount"));
-    fireEvent.change(getByPlaceholderText("e.g. 8"), { target: { value: "8" } });
-    fireEvent.change(getByPlaceholderText("e.g. glasses, min"), {
+    fireEvent.change(getByPlaceholderText("empty = just log it"), { target: { value: "8" } });
+    fireEvent.change(getByPlaceholderText("kg, min, pages"), {
       target: { value: "glasses" },
     });
     fireEvent.click(getByText("Add habit"));
@@ -91,6 +91,24 @@ describe("HabitForm", () => {
     expect(draft.goalType).toBe("measurable");
     expect(draft.target).toBe(8);
     expect(draft.unit).toBe("glasses");
+    expect(draft.timeOfDay).toBe("anytime");
+  });
+
+  test("decimal-comma target and time of day (weight-style habit)", () => {
+    const onSave = vi.fn();
+    const { getByText, getByPlaceholderText } = render(
+      <HabitForm onSave={onSave} onClose={() => {}} />,
+    );
+    fireEvent.change(getByPlaceholderText("e.g. Morning run"), {
+      target: { value: "Kilaža" },
+    });
+    fireEvent.click(getByText("🔢 Amount"));
+    fireEvent.change(getByPlaceholderText("empty = just log it"), { target: { value: "78,5" } });
+    fireEvent.click(getByText("Morning"));
+    fireEvent.click(getByText("Add habit"));
+    const draft = onSave.mock.calls[0][0];
+    expect(draft.target).toBe(78.5);
+    expect(draft.timeOfDay).toBe("morning");
   });
 
   test("close via backdrop and X button", () => {

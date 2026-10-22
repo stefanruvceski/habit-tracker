@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { AppState as RNAppState } from "react-native";
 import type { AppState, FinanceState } from "@habit/core";
 import { supabase } from "../lib/supabase";
-import { pullDoc, pushDoc } from "../lib/sync";
+import { pullDoc, pushDoc, setLiveSync } from "../lib/sync";
 import { actions, appSnapshot, subscribeApp } from "../lib/store";
 import {
   financeActions,
@@ -30,6 +30,7 @@ export function CloudSync({ userId }: { userId: string }) {
     const client = supabase;
     if (!client || !userId) return;
     let cancelled = false;
+    setLiveSync(true);
     const timers: Record<string, ReturnType<typeof setTimeout> | undefined> = {};
     const unsubs: Array<() => void> = [];
 
@@ -88,6 +89,7 @@ export function CloudSync({ userId }: { userId: string }) {
 
     return () => {
       cancelled = true;
+      setLiveSync(false);
       unsubs.forEach((u) => u());
       Object.values(timers).forEach((t) => t && clearTimeout(t));
     };

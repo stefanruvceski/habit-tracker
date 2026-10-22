@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -26,10 +26,17 @@ import {
   isScheduled,
   todosForDate,
   overdueTodos,
+  groupByTimeOfDay,
+  measurableSeries,
+  parseAmount,
+  formatAmount,
+  TIME_OF_DAY_LABEL,
+  TIME_OF_DAY_ICON,
 } from "@habit/core";
 import type { Habit } from "@habit/core";
 import { actions, useAppState, useHabits } from "../lib/store";
 import { C } from "../lib/theme";
+import { consumeFocus, useFocusRequest } from "../lib/focusRequest";
 import { Card, ProgressRing } from "../components/ui";
 import { HabitGlyph } from "../components/HabitGlyph";
 import { WeekStrip } from "../components/WeekStrip";
@@ -48,6 +55,10 @@ export function TodayScreen() {
   const habits = useHabits();
   const [dateKey, setDateKey] = useState(todayKey());
   const [newTask, setNewTask] = useState("");
+  const focusReq = useFocusRequest();
+  useEffect(() => {
+    if (focusReq) setDateKey(todayKey());
+  }, [focusReq]);
 
   // Animate the to-do list gliding to its new order when priority changes.
   function toggleStar(id: string, priority: boolean) {
@@ -62,6 +73,52 @@ export function TodayScreen() {
   const overdue = isToday ? overdueTodos(state.todos, todayKey()) : [];
   const counts = combinedDayCounts(state.entries, habits, state.todos, dateKey);
   const mental = state.mental[dateKey] ?? { mood: 0, motivation: 0 };
+
+  function renderHabit(h: Habit) {
+    const done = isDoneOn(h, state.entries, dateKey);
+    if (isMeasurable(h)) {
+      const prev = measurableSeries(state.entries, h.id, "0000-00-00", addDays(dateKey, -1));
+      return (
+        <MeasurableRow
+          key={h.id}
+          habit={h}
+          amount={amountOn(state.entries, h.id, dateKey)}
+          previous={prev.length ? prev[prev.length - 1].value : null}
+          done={done}
+          onSet={(v) => actions.setAmount(h.id, dateKey, v)}
+        />
+      );
+    }
+    const streak = currentStreak(state.entries, h);
+    return (
+      <Pressable
+        key={h.id}
+        onPress={() => actions.toggle(h.id, dateKey)}
+        style={[
+          styles.row,
+          done ? { backgroundColor: h.color + "1f", borderColor: "transparent" } : null,
+        ]}
+      >
+        <View style={[styles.emojiBox, { backgroundColor: h.color + "22" }]}>
+          <HabitGlyph icon={h.icon} emoji={h.emoji} color={h.color} size={24} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: C.text, fontWeight: "600", fontSize: 15 }}>{h.name}</Text>
+          <Text style={{ color: C.dim, fontSize: 12 }}>
+            {h.type === "quit" ? "Avoid · " : ""}
+            {streak > 0 ? `🔥 ${streak} day${streak === 1 ? "" : "s"}` : "No streak yet"}
+          </Text>
+        </View>
+        <View style={[styles.check, { borderColor: h.color, backgroundColor: done ? h.color : "transparent" }]}>
+          {done && (
+            <Svg width={18} height={18} viewBox="0 0 24 24">
+              <Path d="M5 13l4 4L19 7" stroke={C.bg} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            </Svg>
+          )}
+        </View>
+      </Pressable>
+    );
+  }
 
   function addTask() {
     actions.addTodo(newTask, dateKey);
@@ -173,47 +230,27 @@ export function TodayScreen() {
           </Text>
         )
       ) : (
-        scheduled.map((h) => {
-          const done = isDoneOn(h, state.entries, dateKey);
-          if (isMeasurable(h)) {
-            return (
-              <MeasurableRow
-                key={h.id}
-                habit={h}
-                amount={amountOn(state.entries, h.id, dateKey)}
-                done={done}
-                onSet={(v) => actions.setAmount(h.id, dateKey, v)}
-              />
-            );
-          }
-          const streak = currentStreak(state.entries, h);
+        groupByTimeOfDay(scheduled).map((g, gi, groups) => {
+          const doneInGroup = g.habits.filter((h) => isDoneOn(h, state.entries, dateKey)).length;
           return (
-            <Pressable
-              key={h.id}
-              onPress={() => actions.toggle(h.id, dateKey)}
-              style={[
-                styles.row,
-                done ? { backgroundColor: h.color + "1f", borderColor: "transparent" } : null,
-              ]}
-            >
-              <View style={[styles.emojiBox, { backgroundColor: h.color + "22" }]}>
-                <HabitGlyph icon={h.icon} emoji={h.emoji} color={h.color} size={24} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: C.text, fontWeight: "600", fontSize: 15 }}>{h.name}</Text>
-                <Text style={{ color: C.dim, fontSize: 12 }}>
-                  {h.type === "quit" ? "Avoid · " : ""}
-                  {streak > 0 ? `🔥 ${streak} day${streak === 1 ? "" : "s"}` : "No streak yet"}
-                </Text>
-              </View>
-              <View style={[styles.check, { borderColor: h.color, backgroundColor: done ? h.color : "transparent" }]}>
-                {done && (
-                  <Svg width={18} height={18} viewBox="0 0 24 24">
-                    <Path d="M5 13l4 4L19 7" stroke={C.bg} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                  </Svg>
-                )}
-              </View>
-            </Pressable>
+            <View key={g.timeOfDay} style={{ gap: 10 }}>
+              {(groups.length > 1 || g.timeOfDay !== "anytime") && (
+                <View style={[styles.sectionHead, gi > 0 && { marginTop: 4 }]}>
+                  <Text style={styles.todTitle}>
+                    {TIME_OF_DAY_ICON[g.timeOfDay]}  {TIME_OF_DAY_LABEL[g.timeOfDay]}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.sectionCount,
+                      doneInGroup === g.habits.length && { color: C.accent },
+                    ]}
+                  >
+                    {doneInGroup}/{g.habits.length}
+                  </Text>
+                </View>
+              )}
+              {g.habits.map((h) => renderHabit(h))}
+            </View>
           );
         })
       )}
@@ -233,18 +270,41 @@ export function TodayScreen() {
 function MeasurableRow({
   habit,
   amount,
+  previous,
   done,
   onSet,
 }: {
   habit: Habit;
   amount: number;
+  previous: number | null;
   done: boolean;
   onSet: (amount: number) => void;
 }) {
   const target = habit.target ?? 0;
   const unit = habit.unit ?? "";
+  const hasTarget = target > 0;
   const step = target >= 50 ? Math.max(1, Math.round(target / 10)) : 1;
-  const pct = target > 0 ? Math.min(100, (amount / target) * 100) : amount > 0 ? 100 : 0;
+  const pct = hasTarget ? Math.min(100, (amount / target) * 100) : amount > 0 ? 100 : 0;
+  const [text, setText] = useState(amount ? formatAmount(amount) : "");
+  const [editing, setEditing] = useState(false);
+  const inputRef = useRef<TextInput>(null);
+  const focusReq = useFocusRequest();
+  useEffect(() => {
+    if (focusReq?.habitId === habit.id && consumeFocus(habit.id)) {
+      setTimeout(() => inputRef.current?.focus(), 350);
+    }
+  }, [focusReq, habit.id]);
+  if (!editing && text !== (amount ? formatAmount(amount) : "")) {
+    setText(amount ? formatAmount(amount) : "");
+  }
+
+  function commit() {
+    setEditing(false);
+    const n = parseAmount(text);
+    onSet(n != null && n > 0 ? n : 0);
+  }
+
+  const delta = amount > 0 && previous != null ? amount - previous : null;
 
   return (
     <View
@@ -258,27 +318,53 @@ function MeasurableRow({
         <View style={[styles.emojiBox, { backgroundColor: habit.color + "22" }]}>
           <HabitGlyph icon={habit.icon} emoji={habit.emoji} color={habit.color} size={24} />
         </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: C.text, fontWeight: "600", fontSize: 15 }}>{habit.name}</Text>
-          <Text style={{ color: C.dim, fontSize: 12 }}>
-            {amount}
-            {target > 0 ? ` / ${target}` : ""} {unit}
-            {done ? " ✓" : ""}
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text numberOfLines={1} style={{ color: C.text, fontWeight: "600", fontSize: 15 }}>{habit.name}</Text>
+          <Text numberOfLines={1} style={{ color: C.dim, fontSize: 12 }}>
+            {hasTarget
+              ? `${formatAmount(amount)} / ${formatAmount(target)} ${unit}`
+              : amount > 0
+                ? `${formatAmount(amount)} ${unit}`
+                : previous != null
+                  ? `Last: ${formatAmount(previous)} ${unit}`
+                  : `Tap the number to log ${unit}`.trim()}
+            {delta != null && delta !== 0 && (
+              <Text style={{ color: C.dim }}>
+                {"  "}
+                {delta > 0 ? "▲" : "▼"} {formatAmount(Math.abs(delta))}
+              </Text>
+            )}
+            {done && hasTarget ? " ✓" : ""}
           </Text>
         </View>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <Pressable style={styles.stepBtn} onPress={() => onSet(Math.max(0, amount - step))}>
-            <Text style={styles.stepBtnText}>−</Text>
-          </Pressable>
-          <Text style={{ color: C.text, fontWeight: "700", minWidth: 28, textAlign: "center" }}>
-            {amount}
-          </Text>
-          <Pressable style={styles.stepBtn} onPress={() => onSet(amount + step)}>
-            <Text style={styles.stepBtnText}>+</Text>
-          </Pressable>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 0 }}>
+          {hasTarget && (
+            <Pressable style={styles.stepBtn} onPress={() => onSet(Math.max(0, amount - step))}>
+              <Text style={styles.stepBtnText}>−</Text>
+            </Pressable>
+          )}
+          <TextInput
+            ref={inputRef}
+            value={text}
+            onFocus={() => setEditing(true)}
+            onChangeText={setText}
+            onBlur={commit}
+            onSubmitEditing={commit}
+            keyboardType="decimal-pad"
+            returnKeyType="done"
+            selectTextOnFocus
+            placeholder={previous != null && !hasTarget ? formatAmount(previous) : "0"}
+            placeholderTextColor={C.faint}
+            style={[styles.amountInput, { borderColor: editing ? habit.color : C.border }, { width: hasTarget ? 58 : 80 }]}
+          />
+          {hasTarget && (
+            <Pressable style={styles.stepBtn} onPress={() => onSet(amount + step)}>
+              <Text style={styles.stepBtnText}>+</Text>
+            </Pressable>
+          )}
         </View>
       </View>
-      {target > 0 && (
+      {hasTarget && (
         <View style={styles.track}>
           <View style={[styles.trackFill, { width: `${pct}%`, backgroundColor: habit.color }]} />
         </View>
@@ -350,6 +436,23 @@ const styles = StyleSheet.create({
     backgroundColor: C.elev2,
     marginBottom: 6,
   },
+  amountInput: {
+    flexGrow: 0,
+    flexShrink: 0,
+    height: 38,
+    borderRadius: 10,
+    borderWidth: 1,
+    backgroundColor: C.elev2,
+    color: C.text,
+    fontWeight: "700",
+    fontSize: 15,
+    textAlign: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 0,
+  },
+  sectionHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 4 },
+  todTitle: { color: C.dim, fontSize: 13, fontWeight: "700", letterSpacing: 0.3 },
+  sectionCount: { color: C.faint, fontSize: 12, fontWeight: "700" },
   stepBtn: { width: 38, height: 38, borderRadius: 10, backgroundColor: C.elev2, alignItems: "center", justifyContent: "center" },
   stepBtnText: { color: C.text, fontSize: 20, fontWeight: "700" },
   track: { flex: 1, height: 8, borderRadius: 4, backgroundColor: C.elev2, overflow: "hidden" },

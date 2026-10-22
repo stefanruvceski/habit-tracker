@@ -16,6 +16,8 @@ import {
   isDoneOn,
   isMeasurable,
   amountOn,
+  formatAmount,
+  sortByTimeOfDay,
   isScheduled,
   monthStats,
   scheduledCountOnDate,
@@ -32,7 +34,7 @@ const NAME_W = 120;
 
 export function MonthScreen() {
   const state = useAppState();
-  const habits = useHabits();
+  const habits = sortByTimeOfDay(useHabits());
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
@@ -146,7 +148,9 @@ export function MonthScreen() {
                       const press = () => {
                         if (future && !done) return;
                         if (measurable) {
-                          actions.setAmount(h.id, key, done ? 0 : h.target ?? 1);
+                          // Free-form values (e.g. weight) are typed on the Today tab.
+                          if (!h.target) return;
+                          actions.setAmount(h.id, key, done ? 0 : h.target);
                         } else {
                           actions.toggle(h.id, key);
                         }
@@ -167,8 +171,12 @@ export function MonthScreen() {
                           >
                             {measurable ? (
                               amount > 0 && (
-                                <Text style={{ color: done ? C.bg : h.color, fontSize: 10, fontWeight: "700" }}>
-                                  {amount}
+                                <Text
+                                  numberOfLines={1}
+                                  adjustsFontSizeToFit
+                                  style={{ color: done ? C.bg : h.color, fontSize: formatAmount(amount, 1).length > 3 ? 8 : 10, fontWeight: "700" }}
+                                >
+                                  {formatAmount(amount, 1)}
                                 </Text>
                               )
                             ) : (

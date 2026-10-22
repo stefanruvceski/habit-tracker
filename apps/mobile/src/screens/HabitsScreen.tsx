@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { View, Text, Pressable, ScrollView, StyleSheet } from "react-native";
-import { Habit, bestStreak, currentStreak, isDoneOn, isScheduled } from "@habit/core";
+import { Habit, bestStreak, currentStreak, isDoneOn, isMeasurable, isScheduled, sortByTimeOfDay, timeOfDayOf, TIME_OF_DAY_ICON, TIME_OF_DAY_LABEL } from "@habit/core";
 import { actions, useAppState, useHabits } from "../lib/store";
 import { C } from "../lib/theme";
 import { Card } from "../components/ui";
@@ -8,6 +8,7 @@ import { Heatmap, CellState } from "../components/Heatmap";
 import { HabitGlyph } from "../components/HabitGlyph";
 import { HabitForm, HabitDraft } from "../components/HabitForm";
 import { RemindersCard } from "../components/RemindersCard";
+import { TrendChart } from "../components/TrendChart";
 
 export function HabitsScreen() {
   const state = useAppState();
@@ -17,12 +18,16 @@ export function HabitsScreen() {
   const [year, setYear] = useState(new Date().getFullYear());
   const thisYear = new Date().getFullYear();
 
-  function move(id: string, dir: -1 | 1) {
-    const ids = habits.map((h) => h.id);
-    const i = ids.indexOf(id);
+  // Shown grouped by time of day; arrows reorder within the same group.
+  const list = sortByTimeOfDay(habits);
+  const canMove = (i: number, dir: -1 | 1) => {
     const j = i + dir;
-    if (j < 0 || j >= ids.length) return;
-    [ids[i], ids[j]] = [ids[j], ids[i]];
+    return j >= 0 && j < list.length && timeOfDayOf(list[j]) === timeOfDayOf(list[i]);
+  };
+  function move(i: number, dir: -1 | 1) {
+    if (!canMove(i, dir)) return;
+    const ids = list.map((h) => h.id);
+    [ids[i], ids[i + dir]] = [ids[i + dir], ids[i]];
     actions.reorderHabits(ids);
   }
 
@@ -62,11 +67,11 @@ export function HabitsScreen() {
         </Pressable>
       </View>
 
-      {habits.map((h, i) => {
+      {list.map((h, i) => {
         const getState = (key: string): CellState =>
           isDoneOn(h, state.entries, key) ? "done" : isScheduled(h, key) ? "missed" : "off";
         const scheduleLabel =
-          h.schedule.type === "daily" ? "Daily"
+          h.schedule.type === "daily" ? ""
             : h.schedule.type === "weekly" ? `${h.schedule.times}×/week`
             : `${h.schedule.days.length} days/week`;
         return (
@@ -77,26 +82,32 @@ export function HabitsScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text numberOfLines={1} style={{ color: C.text, fontWeight: "600" }}>{h.name}</Text>
-                <Text style={{ color: C.dim, fontSize: 12 }}>
-                  {h.type === "quit" ? "🚫 Quit · " : ""}{scheduleLabel} · 🔥 {currentStreak(state.entries, h)} · best {bestStreak(state.entries, h)}
+                <Text numberOfLines={1} style={{ color: C.dim, fontSize: 12 }}>
+                  {TIME_OF_DAY_ICON[timeOfDayOf(h)]} {TIME_OF_DAY_LABEL[timeOfDayOf(h)]} · {h.type === "quit" ? "🚫 Quit · " : ""}{scheduleLabel ? `${scheduleLabel} · ` : ""}🔥 {currentStreak(state.entries, h)} · best {bestStreak(state.entries, h)}
                 </Text>
               </View>
-              <Pressable style={styles.iconBtn} onPress={() => move(h.id, -1)} disabled={i === 0}>
-                <Text style={[styles.iconTxt, i === 0 && { opacity: 0.3 }]}>↑</Text>
+              <Pressable style={styles.iconBtn} onPress={() => move(i, -1)} disabled={!canMove(i, -1)}>
+                <Text style={[styles.iconTxt, !canMove(i, -1) && { opacity: 0.3 }]}>↑</Text>
               </Pressable>
-              <Pressable style={styles.iconBtn} onPress={() => move(h.id, 1)} disabled={i === habits.length - 1}>
-                <Text style={[styles.iconTxt, i === habits.length - 1 && { opacity: 0.3 }]}>↓</Text>
+              <Pressable style={styles.iconBtn} onPress={() => move(i, 1)} disabled={!canMove(i, 1)}>
+                <Text style={[styles.iconTxt, !canMove(i, 1) && { opacity: 0.3 }]}>↓</Text>
               </Pressable>
               <Pressable style={styles.iconBtn} onPress={() => setEditing(h)}>
                 <Text style={styles.iconTxt}>✎</Text>
               </Pressable>
             </View>
-            <View style={{ marginTop: 12 }}>
-              <Text style={{ color: C.faint, fontSize: 10, fontWeight: "600", textAlign: "right", marginBottom: 4 }}>
-                {year}
-              </Text>
-              <Heatmap year={year} color={h.color} getState={getState} />
-            </View>
+            {isMeasurable(h) ? (
+              <View style={{ marginTop: 12 }}>
+                <TrendChart habit={h} entries={state.entries} />
+              </View>
+            ) : (
+              <View style={{ marginTop: 12 }}>
+                <Text style={{ color: C.faint, fontSize: 10, fontWeight: "600", textAlign: "right", marginBottom: 4 }}>
+                  {year}
+                </Text>
+                <Heatmap year={year} color={h.color} getState={getState} />
+              </View>
+            )}
           </Card>
         );
       })}

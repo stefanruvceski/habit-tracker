@@ -22,6 +22,7 @@ vi.mock("@react-native-async-storage/async-storage", () => {
 // Minimal react-native surface used by the lib layer.
 vi.mock("react-native", () => ({
   Platform: { OS: "ios" },
+  AppState: { addEventListener: vi.fn(() => ({ remove: vi.fn() })) },
 }));
 
 // expo-notifications mock; tests tweak return values via vi.mocked(...).
@@ -32,9 +33,10 @@ vi.mock("expo-notifications", () => ({
   requestPermissionsAsync: vi.fn(async () => ({ granted: true })),
   scheduleNotificationAsync: vi.fn(async () => "scheduled-id"),
   cancelScheduledNotificationAsync: vi.fn(async () => {}),
+  getAllScheduledNotificationsAsync: vi.fn(async () => []),
   AndroidImportance: { DEFAULT: 3 },
   IosAuthorizationStatus: { PROVISIONAL: 2 },
-  SchedulableTriggerInputTypes: { DAILY: "daily", MONTHLY: "monthly" },
+  SchedulableTriggerInputTypes: { DAILY: "daily", MONTHLY: "monthly", DATE: "date" },
 }));
 
 // Default fetch stub for FX auto-refresh.
