@@ -14,6 +14,14 @@ describe("parseAuthLink", () => {
     ).toEqual({ kind: "session", accessToken: "aaa", refreshToken: "rrr" });
   });
 
+  it("accepts the dev build's scheme", () => {
+    expect(parseAuthLink("streakli-dev://auth?access_token=a&refresh_token=r")).toEqual({
+      kind: "session",
+      accessToken: "a",
+      refreshToken: "r",
+    });
+  });
+
   it("extracts tokens from the hash too", () => {
     expect(parseAuthLink("streakli://auth#access_token=a&refresh_token=r")).toEqual({
       kind: "session",

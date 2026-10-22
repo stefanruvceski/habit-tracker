@@ -52,10 +52,14 @@
         if (v) params.set(k, v);
       });
       var qs = params.toString();
+      // ?app=dev → the "Streakli Dev" build (separate package + scheme).
+      var dev = query.get("app") === "dev";
+      var scheme = dev ? "streakli-dev" : "streakli";
+      var pkg = dev ? "com.ruvceski.streakli.dev" : "com.ruvceski.streakli";
       var isAndroid = /Android/i.test(navigator.userAgent);
       var target = isAndroid
-        ? "intent://auth?" + qs + "#Intent;scheme=streakli;package=com.ruvceski.streakli;end"
-        : "streakli://auth?" + qs;
+        ? "intent://auth?" + qs + "#Intent;scheme=" + scheme + ";package=" + pkg + ";end"
+        : scheme + "://auth?" + qs;
       document.getElementById("open").href = target;
       if (params.get("error")) {
         document.getElementById("title").textContent = "Link expired";
