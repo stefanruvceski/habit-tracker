@@ -41,12 +41,12 @@ test("searchIcons: empty query returns everything", () => {
 });
 
 test("searchIcons: matches id, label, category and keywords", () => {
-  const byLabel = searchIcons("gym");
-  assert.ok(byLabel.some((i) => i.id === "dumbbell"));
+  const byLabel = searchIcons("run");
+  assert.ok(byLabel.some((i) => i.id === "run"));
   const byCat = searchIcons("Fitness");
   assert.ok(byCat.length > 0);
-  const byKeyword = searchIcons("workout");
-  assert.ok(byKeyword.some((i) => i.id === "dumbbell"));
+  const byKeyword = searchIcons("cardio");
+  assert.ok(byKeyword.some((i) => i.id === "run"));
 });
 
 test("searchIcons: no match returns empty", () => {

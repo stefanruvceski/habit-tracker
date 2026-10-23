@@ -148,7 +148,7 @@ export function MonthScreen() {
                       const press = () => {
                         if (future && !done) return;
                         if (measurable) {
-                          // Free-form values (e.g. weight) are typed on the Today tab.
+                          // Free-form values (e.g. pages) are typed on the Today tab.
                           if (!h.target) return;
                           actions.setAmount(h.id, key, done ? 0 : h.target);
                         } else {

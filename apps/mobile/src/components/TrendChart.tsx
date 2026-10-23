@@ -23,7 +23,7 @@ const RANGES = [
 type RangeKey = (typeof RANGES)[number]["key"];
 
 /**
- * Line chart of a measurable habit's logged values over time (weight, pages…),
+ * Line chart of a measurable habit's logged values over time (pages, minutes…),
  * x-axis scaled by real dates, optional dashed target line, with a summary of
  * the latest value and the change over the selected range.
  */

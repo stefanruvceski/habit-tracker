@@ -25,7 +25,7 @@ const W = 600;
 const H = 170;
 const PAD = { l: 38, r: 10, t: 12, b: 22 };
 
-/** Line chart of a measurable habit's values over time (weight, pages…). */
+/** Line chart of a measurable habit's values over time (pages, minutes…). */
 export function TrendChart({ habit, entries }: { habit: Habit; entries: Entries }) {
   const [range, setRange] = useState<RangeKey>("90");
   const today = todayKey();

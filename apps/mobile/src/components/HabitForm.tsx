@@ -231,7 +231,7 @@ export function HabitForm({
                     <TextInput
                       value={draft.unit ?? ""}
                       onChangeText={(t) => setDraft((d) => ({ ...d, unit: t }))}
-                      placeholder="kg, min, pages"
+                      placeholder="min, pages, reps"
                       placeholderTextColor={C.faint}
                       style={styles.input}
                     />

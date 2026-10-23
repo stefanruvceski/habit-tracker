@@ -6,9 +6,9 @@ import { HabitForm } from "./HabitForm";
 function existing(): Habit {
   return {
     id: "h1",
-    name: "Gym",
-    icon: "dumbbell",
-    emoji: "🏋️",
+    name: "Run",
+    icon: "run",
+    emoji: "🏃",
     color: "#34d399",
     type: "build",
     schedule: { type: "daily" },
@@ -82,7 +82,7 @@ describe("HabitForm", () => {
     });
     fireEvent.click(getByText("🔢 Amount"));
     fireEvent.change(getByPlaceholderText("empty = just log it"), { target: { value: "8" } });
-    fireEvent.change(getByPlaceholderText("kg, min, pages"), {
+    fireEvent.change(getByPlaceholderText("min, pages, reps"), {
       target: { value: "glasses" },
     });
     fireEvent.click(getByText("Add habit"));
@@ -94,13 +94,13 @@ describe("HabitForm", () => {
     expect(draft.timeOfDay).toBe("anytime");
   });
 
-  test("decimal-comma target and time of day (weight-style habit)", () => {
+  test("decimal-comma target and time of day", () => {
     const onSave = vi.fn();
     const { getByText, getByPlaceholderText } = render(
       <HabitForm onSave={onSave} onClose={() => {}} />,
     );
     fireEvent.change(getByPlaceholderText("e.g. Morning run"), {
-      target: { value: "Kilaža" },
+      target: { value: "Run distance" },
     });
     fireEvent.click(getByText("🔢 Amount"));
     fireEvent.change(getByPlaceholderText("empty = just log it"), { target: { value: "78,5" } });

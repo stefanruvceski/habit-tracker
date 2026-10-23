@@ -1,7 +1,7 @@
 import React from "react";
 import { FlexWidget, ListWidget, SvgWidget, TextWidget } from "react-native-android-widget";
-import type { ProgressModel, TodayModel, WeightModel } from "./model";
-import { ringSvg, sparklineSvg } from "./model";
+import type { ProgressModel, TodayModel } from "./model";
+import { ringSvg } from "./model";
 
 // Same palette as the app (lib/theme.ts), as hex literals the widget host accepts.
 const BG = "#0a0f1e";
@@ -156,70 +156,6 @@ export function ProgressWidget({ model }: { model: ProgressModel }) {
         truncate="END"
         style={{ fontSize: 11, color: DIM as Hex, marginTop: 2 }}
       />
-    </FlexWidget>
-  );
-}
-
-export function WeightWidget({ model, width }: { model: WeightModel | null; width: number }) {
-  if (!model) {
-    return (
-      <FlexWidget
-        clickAction="OPEN_APP"
-        style={{ height: "match_parent", width: "match_parent", backgroundColor: BG as Hex, borderRadius: 24, padding: 16, justifyContent: "center" }}
-      >
-        <TextWidget text="⚖️ Add an Amount habit (unit kg) to track weight" style={{ fontSize: 13, color: DIM as Hex }} />
-      </FlexWidget>
-    );
-  }
-  const chartW = Math.max(80, Math.round(width - 32 - 96));
-  return (
-    <FlexWidget
-      style={{
-        height: "match_parent",
-        width: "match_parent",
-        backgroundColor: BG as Hex,
-        borderRadius: 24,
-        padding: 14,
-        flexDirection: "row",
-        alignItems: "center",
-      }}
-    >
-      <FlexWidget clickAction="OPEN_APP" style={{ flexDirection: "column", width: 96 }}>
-        <TextWidget text={model.name} maxLines={1} truncate="END" style={{ fontSize: 12, color: DIM as Hex, fontWeight: "700" }} />
-        <TextWidget
-          text={model.last ?? "—"}
-          style={{ fontSize: 28, color: TEXT as Hex, fontWeight: "800" }}
-        />
-        <TextWidget text={model.unit} style={{ fontSize: 12, color: DIM as Hex }} />
-        {model.change ? (
-          <TextWidget text={model.change} maxLines={1} style={{ fontSize: 11, color: FAINT as Hex, marginTop: 2 }} />
-        ) : null}
-      </FlexWidget>
-      <FlexWidget style={{ flex: 1, flexDirection: "column", alignItems: "flex-end" }}>
-        <SvgWidget
-          clickAction="OPEN_APP"
-          svg={sparklineSvg(model.values, chartW, 56, model.color)}
-          style={{ width: chartW, height: 56 }}
-        />
-        <FlexWidget
-          clickAction="OPEN_URI"
-          clickActionData={{ uri: logUri(model.habitId) }}
-          style={{
-            marginTop: 8,
-            paddingHorizontal: 12,
-            paddingVertical: 6,
-            borderRadius: 10,
-            backgroundColor: (model.loggedToday ? ELEV2 : model.color) as Hex,
-            borderWidth: 1,
-            borderColor: (model.loggedToday ? BORDER : model.color) as Hex,
-          }}
-        >
-          <TextWidget
-            text={model.loggedToday ? "✓ Logged · edit" : "+ Log today"}
-            style={{ fontSize: 12, color: (model.loggedToday ? DIM : BG) as Hex, fontWeight: "700" }}
-          />
-        </FlexWidget>
-      </FlexWidget>
     </FlexWidget>
   );
 }
