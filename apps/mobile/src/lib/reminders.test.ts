@@ -101,8 +101,8 @@ describe("reminders store", () => {
       habits: [
         {
           id: "w",
-          name: "Weigh in",
-          emoji: "⚖️",
+          name: "Meditate",
+          emoji: "🧘",
           color: "#fff",
           type: "build",
           schedule: { type: "daily" },
@@ -110,7 +110,7 @@ describe("reminders store", () => {
           order: 0,
           createdAt: "2020-01-01T00:00:00.000Z",
           goalType: "measurable",
-          unit: "kg",
+          unit: "min",
           timeOfDay: "morning",
         },
       ],
@@ -128,7 +128,7 @@ describe("reminders store", () => {
     );
     expect(tod.length).toBeGreaterThanOrEqual(6); // next 7 days (today's may be past)
     expect(tod[0][0].trigger).toMatchObject({ type: "date" });
-    expect(tod[0][0].content.body).toContain("Weigh in");
+    expect(tod[0][0].content.body).toContain("Meditate");
     expect(mockNotif.cancelScheduledNotificationAsync).toHaveBeenCalledWith(HABIT_REMINDER_ID);
     expect((await persisted()).routineEnabled).toBe(true);
   });

@@ -44,18 +44,6 @@
               "resizeMode": "horizontal|vertical",
               "previewImage": "./assets/widget-preview/progress.png",
               "updatePeriodMillis": 1800000
-            },
-            {
-              "name": "StreakliWeight",
-              "label": "Streakli · Weight",
-              "description": "Latest weight, 30-day trend and quick log",
-              "minWidth": "250dp",
-              "minHeight": "110dp",
-              "targetCellWidth": 4,
-              "targetCellHeight": 2,
-              "resizeMode": "horizontal|vertical",
-              "previewImage": "./assets/widget-preview/weight.png",
-              "updatePeriodMillis": 1800000
             }
           ]
         }

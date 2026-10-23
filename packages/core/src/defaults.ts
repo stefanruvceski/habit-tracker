@@ -15,9 +15,9 @@ export const PALETTE = [
 ];
 
 export const EMOJI_SUGGESTIONS = [
-  "🌅", "🏋️", "❄️", "✍️", "📝", "🎧", "🚫", "🥑", "📵", "🍺",
-  "💧", "📚", "🧘", "🏃", "🥗", "😴", "🧹", "💊", "🎯", "🙏",
-  "🚭", "📖", "🎨", "💰", "🌱", "🧠", "☀️", "🌙", "⚡", "🔥",
+  "🌅", "❄️", "✍️", "📝", "🎧", "🚫", "🥑", "📵", "🍺", "💧",
+  "📚", "🧘", "🏃", "🥗", "😴", "🧹", "💊", "🎯", "🙏", "🚭",
+  "📖", "🎨", "💰", "🌱", "🧠", "☀️", "🌙", "⚡", "🔥", "💤",
 ];
 
 let seq = 0;
@@ -32,7 +32,6 @@ export function seedHabits(): Habit[] {
   // [name, built-in icon id, fallback emoji, type]
   const defs: Array<[string, string, string, Habit["type"]]> = [
     ["Early start", "sunrise", "🌅", "build"],
-    ["Gym or movement", "dumbbell", "🏋️", "build"],
     ["Cold shower", "cold", "❄️", "build"],
     ["Journal", "journal", "✍️", "build"],
     ["Plan top 3", "checklist", "📝", "build"],

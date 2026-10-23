@@ -4,10 +4,10 @@ import { todayKey } from "@habit/core";
 import { actions, appSnapshot, ensureLoaded } from "../lib/store";
 import { supabase } from "../lib/supabase";
 import { isLiveSync, pushDoc } from "../lib/sync";
-import { progressModel, todayModel, weightModel } from "./model";
-import { ProgressWidget, TodayWidget, WeightWidget } from "./StreakliWidgets";
+import { progressModel, todayModel } from "./model";
+import { ProgressWidget, TodayWidget } from "./StreakliWidgets";
 
-export const WIDGET_NAMES = ["StreakliToday", "StreakliProgress", "StreakliWeight"] as const;
+export const WIDGET_NAMES = ["StreakliToday", "StreakliProgress"] as const;
 export type WidgetName = (typeof WIDGET_NAMES)[number];
 
 /** Render the given widget from the current app state. */
@@ -17,8 +17,6 @@ export function renderFor(name: string, info: Pick<WidgetInfo, "width" | "height
   switch (name) {
     case "StreakliProgress":
       return <ProgressWidget model={progressModel(state, today)} />;
-    case "StreakliWeight":
-      return <WeightWidget model={weightModel(state, today)} width={info.width} />;
     case "StreakliToday":
     default:
       return <TodayWidget model={todayModel(state, today)} height={info.height} />;

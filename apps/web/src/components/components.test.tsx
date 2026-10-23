@@ -19,9 +19,9 @@ import {
 function habit(over: Partial<Habit> = {}): Habit {
   return {
     id: "h1",
-    name: "Gym",
-    icon: "dumbbell",
-    emoji: "🏋️",
+    name: "Run",
+    icon: "run",
+    emoji: "🏃",
     color: "#34d399",
     type: "build",
     schedule: { type: "daily" },

@@ -41,10 +41,6 @@ export const ICON_CATEGORIES = [
 export const HABIT_ICONS: HabitIcon[] = [
   // ---- Fitness & movement ------------------------------------------------
   {
-    id: "dumbbell", label: "Gym", cat: "Fitness", keys: "workout weights lift strength exercise",
-    e: [["l", 4, 9, 4, 15], ["l", 7, 7.5, 7, 16.5], ["l", 17, 7.5, 17, 16.5], ["l", 20, 9, 20, 15], ["l", 7, 12, 17, 12]],
-  },
-  {
     id: "run", label: "Run", cat: "Fitness", keys: "running jog cardio exercise shoe sneaker",
     e: [["p", "M3.5 16.5c0-1 .6-2 2-2h6l3.5-2 1.6.3c1.7.4 2.9 1.2 2.9 2.7v1.7H3.5z"], ["l", 3.5, 18.7, 20, 18.7], ["l", 9, 14.6, 9.8, 16.1], ["l", 11.5, 13.5, 12.4, 15.1]],
   },
@@ -101,10 +97,6 @@ export const HABIT_ICONS: HabitIcon[] = [
   {
     id: "tooth", label: "Dental", cat: "Health", keys: "teeth brush floss hygiene",
     e: [["p", "M7.5 4c1.7 0 2 1 4.5 1s2.8-1 4.5-1c2 0 3.2 1.7 3.2 4.6 0 4.1-1.3 11.4-3.3 11.4-1.6 0-1.1-4.2-3.4-4.2s-1.8 4.2-3.4 4.2c-2 0-3.3-7.3-3.3-11.4C4.3 5.7 5.5 4 7.5 4z"]],
-  },
-  {
-    id: "scale", label: "Weight", cat: "Health", keys: "scale weigh body",
-    e: [["r", 4.5, 4.5, 15, 15, 3], ["l", 9, 8, 15, 8], ["p", "M12 12l2.5-2.5"], ["C", 12, 12, 1]],
   },
   {
     id: "sun", label: "Sunlight", cat: "Health", keys: "sunshine outdoors daylight vitamin d",

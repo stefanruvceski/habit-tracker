@@ -84,7 +84,7 @@ function Shell() {
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("today");
   useWidgetRefresh();
 
-  // streakli://log/<habitId> (weight widget "+ Log") → Today, focus that field.
+  // streakli://log/<habitId> (Today widget measurable row) → Today, focus that field.
   useEffect(() => {
     const handle = (url: string | null) => {
       const id = parseLogLink(url);

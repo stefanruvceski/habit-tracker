@@ -8,8 +8,6 @@ import {
   isDoneOn,
   isMeasurable,
   isScheduled,
-  measurableSeries,
-  addDays,
   TIME_OF_DAY_ICON,
   TIME_OF_DAY_LABEL,
   type AppState,
@@ -23,7 +21,7 @@ export interface TodayRow {
   color: string;
   done: boolean;
   measurable: boolean;
-  /** e.g. "82,4 kg" or "12 / 20 pages" for measurable habits. */
+  /** e.g. "15 min" or "12 / 20 pages" for measurable habits. */
   detail: string | null;
 }
 
@@ -107,57 +105,6 @@ export function progressModel(state: AppState, dateKey: string): ProgressModel {
     streak,
     streakName,
     next: open ? `${open.title} · ${open.total - open.done} left` : t.total ? "All done 🎉" : null,
-  };
-}
-
-const WEIGHT_RE = /(kil|weight|te[zž]in|vaga|kg)/i;
-
-/** The habit the weight widget follows: a measurable "kg"/weight habit, else the first measurable one. */
-export function pickWeightHabit(state: AppState): Habit | null {
-  const ms = activeHabits(state).filter(isMeasurable);
-  return (
-    ms.find((h) => WEIGHT_RE.test(h.unit ?? "") || WEIGHT_RE.test(h.name)) ??
-    ms.find((h) => !h.target) ??
-    ms[0] ??
-    null
-  );
-}
-
-export interface WeightModel {
-  habitId: string;
-  name: string;
-  color: string;
-  unit: string;
-  last: string | null;
-  lastDate: string | null;
-  loggedToday: boolean;
-  /** Change over the last 30 days, e.g. "▼ 1,2 kg / 30d". */
-  change: string | null;
-  values: number[];
-}
-
-export function weightModel(state: AppState, dateKey: string): WeightModel | null {
-  const h = pickWeightHabit(state);
-  if (!h) return null;
-  const series = measurableSeries(state.entries, h.id, addDays(dateKey, -29), dateKey);
-  const all = measurableSeries(state.entries, h.id, "0000-00-00", dateKey);
-  const last = all.length ? all[all.length - 1] : null;
-  const unit = h.unit ?? "";
-  let change: string | null = null;
-  if (series.length > 1) {
-    const d = series[series.length - 1].value - series[0].value;
-    change = d === 0 ? "no change / 30d" : `${d < 0 ? "▼" : "▲"} ${formatAmount(Math.abs(d), 1)} ${unit} / 30d`.replace("  ", " ");
-  }
-  return {
-    habitId: h.id,
-    name: h.name,
-    color: h.color,
-    unit,
-    last: last ? formatAmount(last.value, 1) : null,
-    lastDate: last ? last.dateKey : null,
-    loggedToday: last?.dateKey === dateKey,
-    change,
-    values: series.map((p) => p.value),
   };
 }
 

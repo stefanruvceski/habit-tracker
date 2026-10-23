@@ -56,7 +56,7 @@ export function groupByTimeOfDay(habits: Habit[]): TimeOfDayGroup[] {
 
 /**
  * Parse a user-typed amount: accepts a decimal comma ("82,4") or point,
- * spaces and a trailing unit ("82,4 kg"). Returns null when there's no number.
+ * spaces and a trailing unit ("82,4"). Returns null when there's no number.
  */
 export function parseAmount(input: string): number | null {
   const m = input.replace(/\s/g, "").replace(",", ".").match(/^[-+]?\d*\.?\d+/);
